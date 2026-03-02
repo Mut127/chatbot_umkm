@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}BAKUL KAHURIPAN{% endblock %}</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="{{ url_for('static', filename='index.js') }}"></script>
+  <script src="{{ url_for('static', filename='chatbot.js') }}"></script>
+</head>
+
+<body class="relative min-h-screen flex flex-col pb-16 lg:pb-0">
+<nav class="desktop-navbar hidden lg:block sticky top-0 z-50">
+  <div class="max-w-6xl mx-auto px-6 py-4">
+    <div class="grid grid-cols-3 items-center">
+      <div class="flex items-center gap-4">
+        <img src="{{ url_for('static', filename='image/logo.png') }}" class="w-12">
+        <div>
+          <h2 class="text-xl font-bold bg-gradient-to-r from-[#a67c52] to-[#6b5842] bg-clip-text text-transparent">
+            BAKUL KAHURIPAN
+          </h2>
+          <p class="text-sm opacity-70">Panduan UMKM</p>
+        </div>
+      </div>
+
+      <!-- Menu -->
+      <ul class="flex justify-center gap-8 text-sm font-medium">
+        <li>
+          <a href="/" id="nav-beranda" class="nav-item flex items-center gap-2 py-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            Beranda
+          </a>
+        </li>
+        <li>
+          <a href="/chatbot" id="nav-helpdesk" class="nav-item flex items-center gap-2 py-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            Helpdesk
+          </a>
+        </li>
+      </ul>
+      <div></div>
+    </div>
+  </div>
+</nav>
+
+<!--  MAIN CONTENT  -->
+<main class="flex-1">
+  {% block content %}{% endblock %}
+</main>
+
+<!--  FOOTER (desktop) -->
+<footer class="hidden lg:block bg-[#9e835f] text-[#f3ede1]">
+  <div class="max-w-6xl mx-auto px-6 py-10">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-start">
+
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-2">
+          <img src="{{ url_for('static', filename='image/logo.png') }}" class="w-8">
+          <span class="font-bold text-base">BAKUL Kahuripan</span>
+        </div>
+        <p class="text-sm opacity-80 leading-relaxed">
+          Mendukung pertumbuhan UMKM Kelurahan Kahuripan melalui digitalisasi layanan.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <h3 class="font-semibold text-sm uppercase tracking-wider opacity-70">Link Cepat</h3>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li><a href="/" class="hover:text-white transition-colors">Beranda</a></li>
+          <li><a href="/chatbot" class="hover:text-white transition-colors">Helpdesk</a></li>
+        </ul>
+      </div>
+
+      <div class="flex flex-col gap-3">
+        <h3 class="font-semibold text-sm uppercase tracking-wider opacity-70">Kontak</h3>
+        <ul class="flex flex-col gap-2 text-sm">
+          <li class="flex items-center gap-2">
+            <span>📍</span> Kelurahan Kahuripan
+          </li>
+          <li class="flex items-center gap-2">
+            <span>✉️</span> info@umkmkahuripan.id
+          </li>
+        </ul>
+      </div>
+
+    </div>
+    <div class="border-t border-[#b19b65] mt-8 pt-5 text-center text-xs opacity-70">
+      © 2026 BAKUL UMKM Kelurahan Kahuripan
+    </div>
+  </div>
+</footer>
+
+<!--  MOBILE BOTTOM NAV  -->
+<nav class="mobile-bottom-nav lg:hidden">
+  <a href="/" id="mob-beranda" class="mobile-nav-item">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+    </svg>
+    <span>Beranda</span>
+  </a>
+
+  <a href="/chatbot" id="mob-helpdesk" class="mobile-nav-item">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round"
+        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+    </svg>
+    <span>Helpdesk</span>
+  </a>
+</nav>
+
+</body>
+
+<script>
+  (function () {
+    const path = window.location.pathname;
+
+    // Desktop nav active
+    const desktopMap = {
+      "/":        "nav-beranda",
+      "/chatbot": "nav-helpdesk",
+    };
+
+    // Mobile nav active
+    const mobileMap = {
+      "/":        "mob-beranda",
+      "/chatbot": "mob-helpdesk",
+    };
+
+    function setActive(map, activeClass) {
+      for (const [route, id] of Object.entries(map)) {
+        const isActive = route === "/" ? path === "/" : path.startsWith(route);
+        if (isActive) {
+          const el = document.getElementById(id);
+          if (el) el.classList.add(activeClass);
+          break;
+        }
+      }
+    }
+
+    setActive(desktopMap, "nav-active");
+    setActive(mobileMap, "mob-active");
+  })();
+</script>
+</html>

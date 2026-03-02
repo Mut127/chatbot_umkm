@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Helpdesk — BAKUL KAHURIPAN{% endblock %}
+
+{% block content %}
+
+<section class="chatbot-wrapper">
+  <div class="chatbot-window">
+
+    <!-- HEADER -->
+    <div class="chatbot-header">
+      <div class="flex items-center gap-3">
+        <img src="{{ url_for('static', filename='image/chatbot.png') }}" class="w-9 h-9 rounded-full">
+        <div>
+          <span class="font-semibold block text-sm sm:text-base">Asisten BAKUL KAHURIPAN</span>
+          <span class="text-xs opacity-75">Tanya seputar KBLI, NIB, Halal & Bantuan UMKM</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT AREA -->
+    <div class="chatbot-chat" id="chatbotMessages">
+      <div class="chat-message welcome">
+        <div class="welcome-text">
+          👋 <b>Selamat Datang di BAKUL KAHURIPAN</b><br>
+          <span class="text-sm opacity-80">
+            Silakan jelaskan usaha Anda atau pilih pertanyaan di bawah
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUICK QUESTIONS -->
+    <div class="quick-questions" id="quickQuestions">
+      <button onclick="askQuestion('panduan-kbli')">📋 Panduan KBLI</button>
+      <button onclick="askQuestion('persyaratan-nib')">📄 Persyaratan NIB</button>
+      <button onclick="askQuestion('langkah-nib')">📝 Langkah NIB</button>
+      <button onclick="askQuestion('persyaratan-halal')">🥘 Sertifikat Halal</button>
+      <button onclick="askQuestion('bantuan-umkm')">💰 Bantuan UMKM</button>
+    </div>
+
+    <!-- INPUT -->
+    <div class="chatbot-input">
+      <input
+        type="text"
+        id="chatInput"
+        placeholder="Ketik pertanyaan Anda..."
+        onkeypress="handleEnter(event)"
+        autocomplete="off">
+      <button onclick="handleUserMessage()">Kirim</button>
+    </div>
+
+  </div>
+</section>
+
+{% endblock %}

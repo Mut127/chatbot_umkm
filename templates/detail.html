@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}KBLI {{ kategori }} — {{ kategori_nama }}{% endblock %}
+
+{% block content %}
+
+<div class="bg-[#f9f7f1] min-h-screen py-8 px-4 sm:px-6">
+  <div class="max-w-3xl mx-auto">
+
+    <!-- Back -->
+    <a href="/" class="inline-flex items-center gap-1 text-sm text-[#6b5842] hover:underline mb-4">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Kembali ke KBLI
+    </a>
+
+    <!-- Title -->
+    <h1 class="text-xl sm:text-2xl font-bold text-[#6b5842] mb-1">
+      Kategori {{ kategori }}
+    </h1>
+    <p class="text-gray-600 text-sm mb-5">{{ kategori_nama }}</p>
+
+    <!-- Search -->
+    <div class="mb-5">
+      <input
+        type="text"
+        id="searchKBLI"
+        placeholder="🔍 Cari kode KBLI atau kata kunci usaha..."
+        class="w-full p-3 rounded-xl border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-[#a67c52] bg-white"
+        onkeyup="applyFilter()"
+      >
+    </div>
+
+    <!-- KBLI LIST -->
+    <div id="kbliList" class="space-y-3">
+      {% for k in kbli_list %}
+      <div
+        class="kbli-item bg-white p-4 rounded-xl shadow-sm"
+        data-search="{{ k.kode }} {{ k.judul|lower }} {{ k.deskripsi|lower }}"
+      >
+        <div class="font-semibold text-[#6b5842] text-sm">
+          {{ k.kode }} — {{ k.judul }}
+        </div>
+        <p class="text-sm text-gray-600 mt-1 leading-relaxed">
+          {{ k.deskripsi }}
+        </p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div id="emptyResult" class="hidden text-center text-gray-500 mt-12 py-8">
+      <div class="text-4xl mb-3">🔍</div>
+      <p class="font-medium">Tidak ada KBLI yang sesuai</p>
+      <p class="text-sm mt-1">Coba kata kunci lain</p>
+    </div>
+
+    <!-- PAGINATION -->
+    <div id="pagination" class="flex flex-wrap justify-center gap-2 mt-8 pb-4"></div>
+
+  </div>
+</div>
+
+<script>
+const ITEMS_PER_PAGE = 20;
+let currentPage = 1;
+let filteredItems = [];
+
+function applyFilter() {
+  const keyword = document.getElementById("searchKBLI").value.toLowerCase();
+  const items = Array.from(document.querySelectorAll(".kbli-item"));
+  filteredItems = keyword
+    ? items.filter(item => item.dataset.search.includes(keyword))
+    : items;
+  currentPage = 1;
+  renderPage();
+}
+
+function renderPage() {
+  const empty = document.getElementById("emptyResult");
+  const pagination = document.getElementById("pagination");
+
+  document.querySelectorAll(".kbli-item").forEach(i => i.style.display = "none");
+
+  if (filteredItems.length === 0) {
+    empty.classList.remove("hidden");
+    pagination.innerHTML = "";
+    return;
+  }
+
+  empty.classList.add("hidden");
+
+  const start = (currentPage - 1) * ITEMS_PER_PAGE;
+  filteredItems.slice(start, start + ITEMS_PER_PAGE).forEach(item => {
+    item.style.display = "block";
+  });
+
+  renderPagination();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function renderPagination() {
+  const pagination = document.getElementById("pagination");
+  pagination.innerHTML = "";
+  const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
+  if (totalPages <= 1) return;
+
+  const btn = (label, page, active = false, disabled = false) => {
+    const cls = active
+      ? "px-3 py-1 rounded-lg bg-[#a67c52] text-white text-sm font-medium"
+      : disabled
+        ? "px-3 py-1 rounded-lg border text-gray-400 text-sm cursor-not-allowed"
+        : "px-3 py-1 rounded-lg border hover:bg-[#f3ede1] text-sm";
+    return `<button ${disabled ? "disabled" : `onclick="gotoPage(${page})"`} class="${cls}">${label}</button>`;
+  };
+
+  pagination.innerHTML += btn("←", currentPage - 1, false, currentPage === 1);
+
+  const delta = 2;
+  const start = Math.max(1, currentPage - delta);
+  const end = Math.min(totalPages, currentPage + delta);
+
+  if (start > 1) pagination.innerHTML += btn("1", 1);
+  if (start > 2) pagination.innerHTML += `<span class="px-1 text-gray-400">…</span>`;
+
+  for (let i = start; i <= end; i++) {
+    pagination.innerHTML += btn(i, i, i === currentPage);
+  }
+
+  if (end < totalPages - 1) pagination.innerHTML += `<span class="px-1 text-gray-400">…</span>`;
+  if (end < totalPages) pagination.innerHTML += btn(totalPages, totalPages);
+
+  pagination.innerHTML += btn("→", currentPage + 1, false, currentPage === totalPages);
+}
+
+function gotoPage(page) {
+  currentPage = page;
+  renderPage();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  filteredItems = Array.from(document.querySelectorAll(".kbli-item"));
+  renderPage();
+});
+</script>
+
+{% endblock %}

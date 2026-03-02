@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+  
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bakul UMKM Kelurahan Kahuripan</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+
+{% extends "base.html" %}
+
+{% block title %}
+KBLI {{ kategori }} — {{ kategori_nama }}
+{% endblock %}
+
+{% block content %}
+
+
+<main class="flex-1">
+<section class="kbli-section bg-[#f9f7f1] py-10 px-6" id="beranda-section">
+  <div class="max-w-7xl mx-auto">
+      <h2 class="text-2xl font-bold mb-4 text-center text-[#6b5842]">
+      KLASIFIKASI BAKU LAPANGAN USAHA INDONESIA (KBLI) 2020
+    </h2>
+    <p class="text-center text-gray-700 mb-8 max-w-3xl mx-auto">
+      Untuk mempermudah pelaku usaha menentukan kategori Bidang Usaha yang akan dikembangkan di Indonesia, pemerintah melalui Badan Pusat Statistik (BPS) menyusun Klasifikasi Baku Lapangan Usaha Indonesia (KBLI) sebagai panduan penentuan jenis kegiatan usaha/bisnis. Acuan ini diperbarui pada September 2020 sesuai dengan Peraturan BPS Nomor 2 Tahun 2020, sehingga total saat ini ada 1.790 kode KBLI.
+    </p>
+    <!-- Daftar Kategori KBLI -->
+<div class="grid grid-cols-1 gap-4 max-w-3xl mx-auto">
+  {% for cat in kbli_categories %}
+ <a
+        href="{{ url_for('kbli_kategori_page', kategori=cat.kode) }}"
+        class="block p-4 bg-white rounded-xl shadow hover:bg-[#f3ede1] transition flex gap-3 items-center"
+      >
+        <div class="bg-gray-300 w-10 h-10 flex items-center justify-center font-semibold rounded">
+          {{ cat.kode }}
+        </div>
+        <div class="text-sm text-gray-700 font-medium">
+          {{ cat.judul }}
+        </div>
+      </a>
+  {% endfor %}
+</div>
+</section>
+</main> 
+{% endblock %}
