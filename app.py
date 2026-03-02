@@ -8,6 +8,7 @@ import re
 import json
 import requests
 import mysql.connector
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -22,12 +23,15 @@ USE_LLM            = True
 OPENROUTER_API_KEY = "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"
 OPENROUTER_MODEL   = "google/gemini-2.0-flash-lite-001"
 
+
 DB_CONFIG = {
-    "host":     "localhost",
-    "user":     "root",
-    "password": "",
-    "database": "descan",
+    "host":     os.environ.get("MYSQLHOST"),
+    "user":     os.environ.get("MYSQLUSER"),
+    "password": os.environ.get("MYSQLPASSWORD"),
+    "database": os.environ.get("MYSQL_DATABASE"),
+    "port":     int(os.environ.get("MYSQLPORT", 3306)),
 }
+
 
 # Model & Tokenizer
 model     = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
