@@ -15,7 +15,7 @@ CORS(app)
 
 
 # Configuration
-MODEL_PATH           = "model_indobert_base_kbli"
+MODEL_PATH           = "Muthi17/chatbot_umkm"
 CONFIDENCE_THRESHOLD = 0.40
 MAX_CLARIFICATION    = 3
 
