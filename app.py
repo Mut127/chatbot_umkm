@@ -403,7 +403,7 @@ def build_symspell_dictionary():
         for word in re.findall(r"[a-zA-Z]+", f"{row['judul']} {row['deskripsi']}".lower()):
             sym_spell.create_dictionary_entry(word, 1)
 
-    db.close()1000)
+    db.close()
 
 build_symspell_dictionary()
 
