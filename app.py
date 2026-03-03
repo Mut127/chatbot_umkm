@@ -40,19 +40,14 @@ tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 le        = joblib.load("label_encoder.pkl")
 
 # Database
-db     = mysql.connector.connect(**DB_CONFIG)
-cursor = db.cursor(dictionary=True)
+# db     = mysql.connector.connect(**DB_CONFIG)
+# cursor = db.cursor(dictionary=True)
+def get_db():
+    return mysql.connector.connect(**DB_CONFIG)
 
 # SymSpell
 sym_spell = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
 
-def build_symspell_dictionary():
-    cursor.execute("SELECT judul, deskripsi FROM kbli_2020")
-    for row in cursor.fetchall():
-        for word in re.findall(r"[a-zA-Z]+", f"{row['judul']} {row['deskripsi']}".lower()):
-            sym_spell.create_dictionary_entry(word, 1)
-    for word in UMKM_DOMAIN_WORDS:
-        sym_spell.create_dictionary_entry(word, 1000)
 
 
 # External Data
@@ -396,6 +391,16 @@ THANKS_RE = re.compile(
     re.IGNORECASE,
 )
 
+def build_symspell_dictionary():
+    # cursor.execute("SELECT judul, deskripsi FROM kbli_2020")
+    for row in cursor.fetchall():
+        for word in re.findall(r"[a-zA-Z]+", f"{row['judul']} {row['deskripsi']}".lower()):
+            sym_spell.create_dictionary_entry(word, 1)
+    for word in UMKM_DOMAIN_WORDS:
+        sym_spell.create_dictionary_entry(word, 1000)
+
+build_symspell_dictionary()
+
 def is_thanks(text: str) -> bool:
     return bool(THANKS_RE.match(text.strip()))
 
@@ -516,19 +521,24 @@ def clear_session(session_id: str) -> None:
 
 
 # Database Helpers
+def get_kbli_categories():
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
 
-def get_kbli_categories() -> list[dict]:
     cursor.execute("""
         SELECT DISTINCT no, nama_kategori
         FROM kbli_2020
         WHERE no IS NOT NULL AND kode != ''
         ORDER BY no
     """)
+
+    rows = cursor.fetchall()
+    db.close()
+
     return [
         {"kode": r["no"].strip(), "judul": r["nama_kategori"].strip()}
-        for r in cursor.fetchall()
+        for r in rows
     ]
-
 
 def sanitize_llm_output(text: str) -> str:
     """Bersihkan output LLM dari simbol markdown dan format liar."""
@@ -665,12 +675,15 @@ def predict():
         kode_list = [le.inverse_transform([pid])[0].zfill(5) for pid in pred_ids]
 
         # Ambil data KBLI dari DB
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
         if priority_prefix:
             cond = " OR ".join(f"kode LIKE '{p}%'" for p in priority_prefix)
             cursor.execute(f"SELECT kode, judul, deskripsi FROM kbli_2020 WHERE {cond}")
         else:
             cursor.execute("SELECT kode, judul, deskripsi FROM kbli_2020")
         db_map = {r["kode"]: r for r in cursor.fetchall()}
+        db.close()
 
         # Scoring
         is_food = has_food_activity(text)
@@ -749,8 +762,16 @@ def chat():
     kbli_match = re.search(r'\b(\d{4,5})\b', user_text)
     if kbli_match:
         kode = kbli_match.group(1).zfill(5)
-        cursor.execute("SELECT kode, judul, deskripsi FROM kbli_2020 WHERE kode = %s", (kode,))
+        db = get_db()
+        cursor = db.cursor(dictionary=True)
+        cursor.execute(
+            "SELECT kode, judul, deskripsi FROM kbli_2020 WHERE kode = %s",
+            (kode,)
+        )
+        
         row = cursor.fetchone()
+        db.close()
+        
         if row:
             return jsonify({
                 "reply": (
@@ -760,6 +781,7 @@ def chat():
                     f"Apakah ini KBLI yang Anda cari?"
                 )
             })
+        
         return jsonify({"reply": f"Kode KBLI {user_text} tidak ditemukan. Coba periksa kembali ya."})
     
     if is_thanks(user_text):
@@ -859,9 +881,11 @@ def chat():
         )
     })
 
-
 @app.route("/kbli/<kategori>")
 def kbli_kategori_page(kategori):
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
     cursor.execute("""
         SELECT nama_kategori
         FROM kbli_2020
@@ -878,13 +902,14 @@ def kbli_kategori_page(kategori):
     """, (kategori.upper(),))
     kbli_list = cursor.fetchall()
 
+    db.close()
+
     return render_template(
         "detail.html",
         kategori=kategori.upper(),
         kategori_nama=kategori_row["nama_kategori"] if kategori_row else "",
         kbli_list=kbli_list
     )
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
