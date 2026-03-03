@@ -42,12 +42,22 @@ DB_CONFIG = {
 model = None
 tokenizer = None
 
+
 def get_model():
     global model, tokenizer
     if model is None:
         model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
         tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     return model, tokenizer
+
+def model_confidence(text: str) -> float:
+    model, tokenizer = get_model()
+
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    probs = torch.softmax(outputs.logits, dim=1)[0]
+    return torch.max(probs).item()
     
 le        = joblib.load("label_encoder.pkl")
 
@@ -857,6 +867,7 @@ def chat():
     )
 
     if is_describing_business:
+        get_model()
         accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
         user_session_text[session_id] = accumulated
         if has_business_description(user_text) and len(accumulated.split()) >= 4:
