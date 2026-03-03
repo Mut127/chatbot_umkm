@@ -235,7 +235,7 @@ function autoCollapseQuestions() {
 async function getKBLIRecommendation(text) {
   try {
     // 1️⃣ Panggil chat dulu
-    let res = await fetch("http://127.0.0.1:5000/chat", {
+   let res = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -253,9 +253,8 @@ async function getKBLIRecommendation(text) {
 
     // 2️⃣ Kalau diarahkan ke predict
     if (data.redirect === "predict") {
-
-      // 👉 DI SINI LOGIC REDIRECT BERJALAN
-      res = await fetch("http://127.0.0.1:5000/predict", {
+      
+     res = await fetch("/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -295,7 +294,7 @@ async function getKBLIRecommendation(text) {
 // ==================== CHAT API ====================
 async function getChatResponse(text) {
   try {
-    const res = await fetch("http://127.0.0.1:5000/chat", {
+    const res = await fetch("/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text })
