@@ -22,7 +22,6 @@ CONFIDENCE_THRESHOLD = 0.40
 MAX_CLARIFICATION    = 3
 
 USE_LLM            = True
-# OPENROUTER_API_KEY = "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"
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_MODEL   = "google/gemini-2.0-flash-lite-001"
 
@@ -37,8 +36,6 @@ DB_CONFIG = {
 
 
 # Model & Tokenizer
-# model     = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
-# tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
 model = None
 tokenizer = None
 
@@ -50,26 +47,14 @@ def get_model():
         tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     return model, tokenizer
 
-def model_confidence(text: str) -> float:
-    model, tokenizer = get_model()
-
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
-    with torch.no_grad():
-        outputs = model(**inputs)
-    probs = torch.softmax(outputs.logits, dim=1)[0]
-    return torch.max(probs).item()
-    
-le        = joblib.load("label_encoder.pkl")
+le = joblib.load("label_encoder.pkl")
 
 # Database
-# db     = mysql.connector.connect(**DB_CONFIG)
-# cursor = db.cursor(dictionary=True)
 def get_db():
     return mysql.connector.connect(**DB_CONFIG)
 
 # SymSpell
 sym_spell = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
-
 
 
 # External Data
@@ -115,7 +100,6 @@ UMKM_KNOWLEDGE = {
         "• NIB berlaku seumur hidup<br>"  
         "• Gratis dan dapat diurus online di OSS\n"
         "Butuh bantuan menemukan kode KBLI? Ceritakan jenis usaha Anda 😊\n"
-
     ),
     "perizinan": (
         "📄 Informasi Perizinan Usaha (UMKM): \n\n"
@@ -126,7 +110,6 @@ UMKM_KNOWLEDGE = {
         "Untuk usaha mikro-kecil, biasanya cukup NIB saja.\n"
         "Ketik 'cara daftar NIB' untuk panduan lengkapnya, atau ceritakan usaha Anda \n"
         "dan saya bantu carikan KBLI yang dibutuhkan 😊"
-        
     ),
     "kbli_info": (
         "📖 Apa itu KBLI?\n\n"
@@ -159,7 +142,6 @@ UMKM_KNOWLEDGE = {
         "• Judul dan deskripsi lengkap<br>" 
         "• Rekomendasi yang paling sesuai<br><br>" 
         "💡 <em>Silakan coba sekarang dengan mendeskripsikan usaha Anda!</em>"
-
     ),
     "halal": (
         "🌙 Cara Daftar Sertifikasi Halal:\n\n"
@@ -264,12 +246,21 @@ KBLI_QUESTION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# FIX: tambah kata kerja tanpa subjek yang sering dipakai user
+STANDALONE_VERB_RE = re.compile(
+    r"^(jualan|berjualan|jual|dagang|berdagang|jualan|menjual|"
+    r"buka|membuka|bikin|membuat|produksi|memproduksi|"
+    r"jasa|servis|service|keliling|lapak)\b",
+    re.IGNORECASE,
+)
 
 FOOD_KEYWORDS = {
     "cilok", "bakso", "makanan", "jajanan", "minuman",
     "warung", "kaki", "lima", "gerobak", "kuliner", "dagangan",
     "mie", "ayam", "nasi", "soto", "gorengan", "kue", "es",
     "tahu", "tempe", "pecel", "sate", "seafood", "catering",
+    # FIX: tambah minuman spesifik
+    "doger", "cimcau", "jamu", "wedang", "cincau", "susu", "kopi",
 }
 
 BUSINESS_KEYWORDS = [
@@ -296,6 +287,8 @@ BUSINESS_KEYWORDS = [
     # Produk makanan spesifik
     "cilok", "bakso", "gorengan", "kue", "nasi", "ayam",
     "tahu", "tempe", "mie", "soto", "catering", "kuliner",
+    # FIX: tambah produk minuman
+    "es doger", "es cimcau", "jamu", "doger", "cimcau",
     # Produk non-makanan
     "pakaian", "baju", "sepatu", "tas", "elektronik",
     "handphone", "hp", "komputer",
@@ -309,48 +302,31 @@ BUSINESS_KEYWORDS = [
 
 
 TOPIC_RULES = [
-    # HALAL — taruh paling atas, sebelum NIB
     ("halal", [
         "sertifikat halal", "sertifikasi halal",
         "halal umkm", "daftar halal",
         "gimana halal", "proses halal", "syarat halal",
         "self declare", "self-declare",
-        "cara mendapatkan halal",
-        "cara dapat halal",
-        "cara memperoleh halal",
-        "mendapatkan sertifikat halal",
-        "mendapatkan sertifikasi halal",
-        "dapat sertifikat halal",
-        "dapat sertifikasi halal",
-        "buat sertifikat halal",
-        "membuat sertifikat halal",
-        "urus sertifikat halal",
-        "mengurus sertifikat halal",
-        "sertifikat halal cara",
-        "cara daftar sertifikat halal",   
-        "cara daftar halal",             
-        "cara halal",
-        "info halal",
-        "informasi halal",
-        "tentang halal",
+        "cara mendapatkan halal", "cara dapat halal",
+        "cara memperoleh halal", "mendapatkan sertifikat halal",
+        "mendapatkan sertifikasi halal", "dapat sertifikat halal",
+        "dapat sertifikasi halal", "buat sertifikat halal",
+        "membuat sertifikat halal", "urus sertifikat halal",
+        "mengurus sertifikat halal", "sertifikat halal cara",
+        "cara daftar sertifikat halal", "cara daftar halal",
+        "cara halal", "info halal", "informasi halal", "tentang halal",
     ]),
-    # NIB 
     ("nib", [
         "nib", "nomor induk berusaha",
         "bikin nib", "buat nib", "daftar nib", "cara nib",
         "urus nib", "gimana nib", "mendaftar nib",
-        "pendaftaran nib",
-        "langkah nib",
-        "cara mendaftar nib",   
-        "daftar di oss",
-        "daftar oss",
-        "oss.go.id",
+        "pendaftaran nib", "langkah nib", "cara mendaftar nib",
+        "daftar di oss", "daftar oss", "oss.go.id",
     ]),
     ("perizinan", [
         "perizinan", "izin usaha", "izin berusaha",
         "surat izin", "legalitas", "legal usaha",
-        "info perizinan", "informasi perizinan",
-        "berizinan",   
+        "info perizinan", "informasi perizinan", "berizinan",
     ]),
     ("kbli_info", [
         "apa itu kbli", "kbli itu apa", "kbli adalah",
@@ -361,37 +337,46 @@ TOPIC_RULES = [
         "modal usaha", "pinjaman usaha", "dana umkm",
         "kredit usaha", "bantuan modal", "info bantuan",
     ]),
-    # MENU
     ("menu", [
         "info apa", "apa saja", "bisa apa", "bisa bantu apa",
         "kamu bisa apa", "fitur apa", "kemampuan kamu",
-        "apa yang bisa", "bisa ngapain",
-        "bisa bantu saya apa",  
-        "bantu saya apa",  
-        "kamu bisa bantu aku apa aja",      
-        "kamu bisa bantu",      
-        "apa yang kamu bisa",    
-        "apa bisa kamu bantu",   
+        "apa yang bisa", "bisa ngapain", "bisa bantu saya apa",
+        "bantu saya apa", "kamu bisa bantu aku apa aja",
+        "kamu bisa bantu", "apa yang kamu bisa", "apa bisa kamu bantu",
     ]),
 ]
 
 SPECIFIC_BOOST = {
-    "warung makan":  {"contains": ["warung makan", "rumah makan"],                                   "boost": 8, "prefix": "56"},
-    "rumah makan":   {"contains": ["warung makan", "rumah makan"],                                   "boost": 8, "prefix": "56"},
-    "kedai makan":   {"contains": ["kedai", "makanan"],                                              "boost": 8, "prefix": "56"},
-    "pemasok":       {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"], "boost": 8, "prefix": "46"},
-    "distributor":   {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"], "boost": 8, "prefix": "46"},
-    "grosir":        {"contains": ["perdagangan besar", "grosir"],                                   "boost": 8, "prefix": "46"},
-    "tahu":          {"contains": ["tahu"],                                                           "boost": 6, "prefix": "10"},
-    "tempe":         {"contains": ["tempe"],                                                          "boost": 6, "prefix": "10"},
-    "jahit":         {"contains": ["jahit", "konveksi", "pakaian"],                                  "boost": 6, "prefix": "14"},
-    "menjahit":      {"contains": ["jahit", "konveksi", "pakaian"],                                  "boost": 6, "prefix": "14"},
-    "bengkel":       {"contains": ["bengkel", "reparasi", "kendaraan"],                              "boost": 6, "prefix": "45"},
-    "salon":         {"contains": ["salon", "kecantikan", "rambut"],                                 "boost": 6, "prefix": "96"},
-    "laundry":       {"contains": ["laundry", "linen", "cucian"],                                    "boost": 6, "prefix": "96"},
+    "warung makan":  {"contains": ["warung makan", "rumah makan"],                                    "boost": 8,  "prefix": "56"},
+    "rumah makan":   {"contains": ["warung makan", "rumah makan"],                                    "boost": 8,  "prefix": "56"},
+    "kedai makan":   {"contains": ["kedai", "makanan"],                                               "boost": 8,  "prefix": "56"},
+    "nasi goreng":   {"contains": ["makanan", "keliling", "tempat tidak tetap", "nasi"],              "boost": 8,  "prefix": "56"},
+    "gorengan":      {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 8,  "prefix": "56"},
+    "bakso":         {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 8,  "prefix": "56"},
+    "cilok":         {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 8,  "prefix": "56"},
+    "sate":          {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 7,  "prefix": "56"},
+    "mie ayam":      {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 7,  "prefix": "56"},
+    # FIX: minuman keliling
+    "es doger":      {"contains": ["minuman", "keliling", "tempat tidak tetap"],                      "boost": 10, "prefix": "56"},
+    "doger":         {"contains": ["minuman", "keliling", "tempat tidak tetap"],                      "boost": 10, "prefix": "56"},
+    "es cimcau":     {"contains": ["minuman", "keliling", "tempat tidak tetap"],                      "boost": 10, "prefix": "56"},
+    "cimcau":        {"contains": ["minuman", "keliling", "tempat tidak tetap"],                      "boost": 9,  "prefix": "56"},
+    "jamu":          {"contains": ["minuman", "keliling", "jamu"],                                    "boost": 9,  "prefix": "56"},
+    "jamu gendong":  {"contains": ["minuman", "keliling", "jamu"],                                    "boost": 10, "prefix": "56"},
+    # "es" sengaja tidak diberi boost besar agar tidak false-positive ke 35302
+    "pemasok":       {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"],  "boost": 8,  "prefix": "46"},
+    "distributor":   {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"],  "boost": 8,  "prefix": "46"},
+    "grosir":        {"contains": ["perdagangan besar", "grosir"],                                    "boost": 8,  "prefix": "46"},
+    "tahu":          {"contains": ["tahu"],                                                            "boost": 6,  "prefix": "10"},
+    "tempe":         {"contains": ["tempe"],                                                           "boost": 6,  "prefix": "10"},
+    "jahit":         {"contains": ["jahit", "konveksi", "pakaian"],                                   "boost": 6,  "prefix": "14"},
+    "menjahit":      {"contains": ["jahit", "konveksi", "pakaian"],                                   "boost": 6,  "prefix": "14"},
+    "konveksi":      {"contains": ["konveksi", "pakaian", "tekstil"],                                 "boost": 7,  "prefix": "14"},
+    "bengkel":       {"contains": ["bengkel", "reparasi", "kendaraan"],                               "boost": 6,  "prefix": "45"},
+    "salon":         {"contains": ["salon", "kecantikan", "rambut"],                                  "boost": 6,  "prefix": "96"},
+    "laundry":       {"contains": ["laundry", "linen", "cucian"],                                     "boost": 6,  "prefix": "96"},
 }
 
-# Kata-kata domain UMKM yang wajib ada di kamus SymSpell
 UMKM_DOMAIN_WORDS = [
     "nib", "kbli", "halal", "perizinan", "sertifikat", "sertifikasi",
     "oss", "umkm", "usaha", "izin", "legalitas", "bantuan", "modal",
@@ -412,13 +397,10 @@ THANKS_RE = re.compile(
 def build_symspell_dictionary():
     db = get_db()
     cursor = db.cursor(dictionary=True)
-
     cursor.execute("SELECT judul, deskripsi FROM kbli_2020")
-
     for row in cursor.fetchall():
         for word in re.findall(r"[a-zA-Z]+", f"{row['judul']} {row['deskripsi']}".lower()):
             sym_spell.create_dictionary_entry(word, 1)
-
     db.close()
 
 build_symspell_dictionary()
@@ -458,12 +440,14 @@ def has_business_description(text: str) -> bool:
     return bool(BUSINESS_DESCRIPTION_RE.search(text))
 
 
+def is_standalone_business_verb(text: str) -> bool:
+    """FIX: Deteksi kata kerja usaha tanpa subjek, misal 'berjualan es', 'jualan gorengan'"""
+    return bool(STANDALONE_VERB_RE.match(text.strip()))
+
+
 def is_kbli_code(text: str) -> bool:
-    # Cek apakah ada kode 4-5 digit dalam teks
     match = re.search(r'\b(\d{4,5})\b', text.strip())
-    if match:
-        return True
-    return False
+    return bool(match)
 
 def is_asking_about_kbli(text: str) -> bool:
     return bool(KBLI_QUESTION_RE.search(text))
@@ -500,7 +484,6 @@ def keyword_relevance(query: str, description: str) -> int:
 
 
 def apply_specific_boost(raw_text: str, kode: str, deskripsi: str) -> int:
-    """Boost/penalti berdasarkan kata kunci spesifik."""
     boost = 0
     txt   = raw_text.lower()
     desc  = deskripsi.lower()
@@ -519,16 +502,6 @@ def detect_priority_prefix(text: str) -> Optional[List[str]]:
     return list(prefixes) if prefixes else None
 
 
-# IndoBERT Inference
-def model_confidence(text: str) -> float:
-    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
-    with torch.no_grad():
-        outputs = model(**inputs)
-    probs = torch.softmax(outputs.logits, dim=1)[0]
-    return torch.max(probs).item()
-
-
-
 # Session Helpers
 def get_clarification_reply(session_id: str) -> str:
     idx = min(user_clarification_count.get(session_id, 0), len(CLARIFICATION_REPLIES) - 1)
@@ -541,51 +514,36 @@ def clear_session(session_id: str) -> None:
     user_awaiting_business.pop(session_id, None)
 
 
-
 # Database Helpers
 def get_kbli_categories():
     db = get_db()
     cursor = db.cursor(dictionary=True)
-
     cursor.execute("""
         SELECT DISTINCT no, nama_kategori
         FROM kbli_2020
         WHERE no IS NOT NULL AND kode != ''
         ORDER BY no
     """)
-
     rows = cursor.fetchall()
     db.close()
-
     return [
         {"kode": r["no"].strip(), "judul": r["nama_kategori"].strip()}
         for r in rows
     ]
 
 def sanitize_llm_output(text: str) -> str:
-    """Bersihkan output LLM dari simbol markdown dan format liar."""
-    # Hapus heading markdown
     text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
-    # Hapus bold/italic
     text = re.sub(r"\*{1,3}([^*\n]+)\*{1,3}", r"\1", text)
     text = re.sub(r"_{1,2}([^_\n]+)_{1,2}", r"\1", text)
-    # Hapus horizontal rule
     text = re.sub(r"^[-*_]{3,}\s*$", "", text, flags=re.MULTILINE)
-    # Hapus backtick
     text = re.sub(r"`+([^`]*)`+", r"\1", text)
-    # Ganti bullet 
     text = re.sub(r"^[\*\-•]\s+", "- ", text, flags=re.MULTILINE)
-    # Rapikan baris kosong berlebihan
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
 
-
 # LLM (OpenRouter)
-
 def call_openrouter(messages: list[dict]) -> str:
-    import requests
-
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type":  "application/json",
@@ -607,7 +565,6 @@ def call_openrouter(messages: list[dict]) -> str:
     data = resp.json()
     if "choices" not in data:
         raise RuntimeError("OpenRouter response invalid")
-
     return sanitize_llm_output(data["choices"][0]["message"]["content"])
 
 
@@ -624,11 +581,8 @@ def generate_chat_response(text: str, best_kbli: dict) -> str:
             )},
         ]
         return call_openrouter(messages)
-
     except Exception as e:
         print("[LLM FAILED]", e)
-
-        # 🔁 FALLBACK AMAN (WAJIB ADA)
         return (
             f"Oke, saya sudah menemukan KBLI yang cocok untuk usaha Anda 😊\n\n"
             f"📌 Kode: {best_kbli['kode']}\n"
@@ -651,9 +605,7 @@ def llm_reply_or(user_text: str, fallback: str):
             return jsonify({"reply": fallback})
 
 
-
 # Routes
-
 @app.route("/")
 def home():
     return render_template("index.html", kbli_categories=get_kbli_categories())
@@ -678,7 +630,8 @@ def predict():
 
         text = correct_typo(normalize_text(combined_raw))
 
-        if len(text.split()) < 3:
+        # FIX: turunkan threshold minimum kata dari 3 → 2
+        if len(text.split()) < 2:
             return jsonify({
                 "success": False,
                 "error": "Deskripsi usaha terlalu singkat. Mohon jelaskan lebih detail.",
@@ -781,7 +734,7 @@ def chat():
     user_session_text.setdefault(session_id, "")
     user_awaiting_business.setdefault(session_id, False)
 
-    #1. Kode KBLI (4–5 digit) 
+    # 1. Kode KBLI (4–5 digit)
     kbli_match = re.search(r'\b(\d{4,5})\b', user_text)
     if kbli_match:
         kode = kbli_match.group(1).zfill(5)
@@ -791,10 +744,8 @@ def chat():
             "SELECT kode, judul, deskripsi FROM kbli_2020 WHERE kode = %s",
             (kode,)
         )
-        
         row = cursor.fetchone()
         db.close()
-        
         if row:
             return jsonify({
                 "reply": (
@@ -804,9 +755,9 @@ def chat():
                     f"Apakah ini KBLI yang Anda cari?"
                 )
             })
-        
         return jsonify({"reply": f"Kode KBLI {user_text} tidak ditemukan. Coba periksa kembali ya."})
-    
+
+    # 2. Ucapan terima kasih
     if is_thanks(user_text):
         return jsonify({
             "reply": (
@@ -815,15 +766,15 @@ def chat():
                 "saya siap membantu kapan saja."
             )
         })
-    # 2. Topik UMKM (NIB, halal, perizinan, dll) 
+
+    # 3. Topik UMKM (NIB, halal, perizinan, dll)
     topic = detect_umkm_topic(user_text)
     if topic:
-        # Hanya panggil LLM untuk topik menu (butuh variasi), sisanya pakai static
         if topic == "menu":
             return llm_reply_or(user_text, UMKM_KNOWLEDGE[topic])
         return jsonify({"reply": UMKM_KNOWLEDGE[topic]})
 
-    # 3. Salam murni 
+    # 4. Salam murni
     if is_greeting(user_text) and not is_business_context(user_text):
         return jsonify({
             "reply": (
@@ -837,15 +788,13 @@ def chat():
             )
         })
 
-    # 4. Tanya KBLI tapi belum sebut jenis usaha 
+    # 5. Tanya KBLI tapi belum sebut jenis usaha
     if is_asking_about_kbli(user_text):
         if has_business_description(user_text) or is_business_context(user_text):
-            # Sudah ada info usaha dalam pertanyaan → langsung classify
             accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
             user_session_text[session_id] = accumulated
             return jsonify({"redirect": "predict"})
         else:
-            # Belum ada info usaha → minta deskripsi
             user_awaiting_business[session_id] = True
             return jsonify({
                 "reply": (
@@ -857,12 +806,12 @@ def chat():
                 )
             })
 
-    # 5. Ada deskripsi usaha langsung classify 
-    # Gabungkan semua kondisi yang mengindikasikan deskripsi usaha:
-    # has_business_description, is_business_context, atau sedang awaiting
+    # 6. Deteksi deskripsi usaha
+    # FIX: tambahkan is_standalone_business_verb agar "berjualan es" terdeteksi
     is_describing_business = (
         has_business_description(user_text)
         or is_business_context(user_text)
+        or is_standalone_business_verb(user_text)
         or user_awaiting_business.get(session_id, False)
     )
 
@@ -870,7 +819,9 @@ def chat():
         get_model()
         accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
         user_session_text[session_id] = accumulated
-        if has_business_description(user_text) and len(accumulated.split()) >= 4:
+
+        # FIX: threshold minimum kata diturunkan 4 → 2, tidak perlu has_business_description
+        if len(accumulated.split()) >= 2:
             return jsonify({"redirect": "predict"})
 
         confidence   = model_confidence(normalize_text(correct_typo(accumulated)))
@@ -878,38 +829,30 @@ def chat():
 
         print(f"[Classify] session={session_id} conf={confidence:.4f} clarif={clarif_count} | '{accumulated[:80]}'")
 
-        # Langsung classify jika confidence cukup ATAU sudah clarifikasi 1x
-        # (turunkan threshold agar tidak loop minta klarifikasi terus)
         if confidence >= CONFIDENCE_THRESHOLD or clarif_count >= 1:
-            # clear_session(session_id)
             return jsonify({"redirect": "predict"})
 
-        # Baru clarifikasi jika confidence rendah dan belum pernah clarifikasi
         user_clarification_count[session_id] = clarif_count + 1
         user_awaiting_business[session_id]   = True
+        return jsonify({"reply": get_clarification_reply(session_id)})
 
-        clarif_msg = (
-            "Boleh ceritakan sedikit lebih detail? "
-        )
-        return jsonify({"reply": clarif_msg})
+    # 7. Tidak dikenali → klarifikasi dulu, bukan langsung menu
+    # FIX: hapus fallback menu langsung, ganti dengan klarifikasi bertahap
+    user_awaiting_business[session_id] = True
+    clarif_count = user_clarification_count.get(session_id, 0)
+    user_clarification_count[session_id] = clarif_count + 1
 
-    # 6. Tidak dikenali
-    return jsonify({
-        "reply": (
-            "Saya bisa membantu:\n"
-            "1. Mencari kode KBLI — ceritakan jenis usaha Anda\n"
-            "2. Info cara daftar NIB — ketik 'cara daftar NIB'\n"
-            "3. Info perizinan usaha — ketik 'info perizinan'\n"
-            "4. Info sertifikasi halal — ketik 'info halal'\n"
-            "5. Info bantuan UMKM — ketik 'info bantuan'"
-        )
-    })
+    if clarif_count >= MAX_CLARIFICATION:
+        clear_session(session_id)
+        return jsonify({"reply": UMKM_KNOWLEDGE["menu"]})
+
+    return jsonify({"reply": get_clarification_reply(session_id)})
+
 
 @app.route("/kbli/<kategori>")
 def kbli_kategori_page(kategori):
     db = get_db()
     cursor = db.cursor(dictionary=True)
-
     cursor.execute("""
         SELECT nama_kategori
         FROM kbli_2020
@@ -925,7 +868,6 @@ def kbli_kategori_page(kategori):
         ORDER BY kode
     """, (kategori.upper(),))
     kbli_list = cursor.fetchall()
-
     db.close()
 
     return render_template(
@@ -937,4 +879,4 @@ def kbli_kategori_page(kategori):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port) 
+    app.run(host="0.0.0.0", port=port)
