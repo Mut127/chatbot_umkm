@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from symspellpy import SymSpell, Verbosity
+from typing import List, Optional
 import torch
 import joblib
 import re
@@ -9,6 +10,7 @@ import json
 import requests
 import mysql.connector
 import os
+
 
 app = Flask(__name__)
 CORS(app)
@@ -91,8 +93,8 @@ UMKM_KNOWLEDGE = {
         "5. Dokumen pendukung lain tergantung jenis badan usaha<br>"  
         "<strong>Catatan:</strong><br>"  
         "• NIB berlaku seumur hidup<br>"  
-        "• Gratis dan dapat diurus online di OSS"
-        "Butuh bantuan menemukan kode KBLI? Ceritakan jenis usaha Anda 😊"
+        "• Gratis dan dapat diurus online di OSS\n"
+        "Butuh bantuan menemukan kode KBLI? Ceritakan jenis usaha Anda 😊\n"
 
     ),
     "perizinan": (
@@ -102,7 +104,7 @@ UMKM_KNOWLEDGE = {
         "2. Sertifikat Standar — untuk usaha risiko menengah\n"
         "3. Izin — untuk usaha risiko tinggi\n\n"
         "Untuk usaha mikro-kecil, biasanya cukup NIB saja.\n"
-        "Ketik 'cara daftar NIB' untuk panduan lengkapnya, atau ceritakan usaha Anda "
+        "Ketik 'cara daftar NIB' untuk panduan lengkapnya, atau ceritakan usaha Anda \n"
         "dan saya bantu carikan KBLI yang dibutuhkan 😊"
         
     ),
@@ -170,7 +172,7 @@ UMKM_KNOWLEDGE = {
         "• KUR – Kredit Usaha Rakyat bunga rendah\n"
         "• LPDB – Pinjaman dari Lembaga Pengelola Dana Bergulir\n"
         "• Pelatihan gratis – Kemenparekraf dan Kemenkop\n\n"
-        "Pastikan usaha Anda sudah punya NIB agar bisa mengakses bantuan ini 😊"
+        "Pastikan usaha Anda sudah punya NIB agar bisa mengakses bantuan ini 😊\n"
         "<strong>1. Bantuan Produktif Usaha Mikro (BPUM)</strong><br>"
         "• Dana bantuan Rp 2.4 juta<br>"
         "• Untuk usaha mikro terdampak pandemi<br>"
@@ -210,13 +212,13 @@ SYSTEM_PROMPT = (
 )
 
 CLARIFICATION_REPLIES = [
-    "Boleh ceritakan lebih detail usaha Anda? Misalnya, Anda menjual apa atau menyediakan layanan apa? 😊",
+    "Boleh ceritakan lebih detail usaha Anda? Misalnya, Anda menjual apa atau menyediakan layanan apa? 😊\n",
     (
-        "Supaya saya bisa merekomendasikan KBLI yang tepat, coba jelaskan sedikit lagi — "
-        "produk yang dijual, layanan yang ditawarkan, atau lokasi usaha Anda."
+        "Supaya saya bisa merekomendasikan KBLI yang tepat, coba jelaskan sedikit lagi —\n "
+        "produk yang dijual, layanan yang ditawarkan, atau lokasi usaha Anda.\n"
     ),
     (
-        "Hampir ketemu! Satu detail lagi — apakah usaha Anda di rumah, toko, atau keliling? "
+        "Hampir ketemu! Satu detail lagi — apakah usaha Anda di rumah, toko, atau keliling?\n "
         "Dan produk/layanan utamanya apa?"
     ),
 ]
@@ -495,7 +497,7 @@ def apply_specific_boost(raw_text: str, kode: str, deskripsi: str) -> int:
     return boost
 
 
-def detect_priority_prefix(text: str) -> list[str] | None:
+def detect_priority_prefix(text: str) -> Optional[List[str]]:
     words    = set(text.lower().split())
     prefixes = {p for p, kws in PRIORITY_FROM_DESA.items() if words & kws}
     return list(prefixes) if prefixes else None
