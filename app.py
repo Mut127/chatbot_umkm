@@ -854,10 +854,10 @@ def kbli_kategori_page(kategori):
     db = get_db()
     cursor = db.cursor(dictionary=True)
     cursor.execute("""
-        SELECT nama_kategori
+        SELECT DISTINCT kode, judul, deskripsi
         FROM kbli_2020
         WHERE no = %s
-        LIMIT 1
+        ORDER BY kode
     """, (kategori.upper(),))
     kategori_row = cursor.fetchone()
 
