@@ -392,12 +392,16 @@ THANKS_RE = re.compile(
 )
 
 def build_symspell_dictionary():
-    # cursor.execute("SELECT judul, deskripsi FROM kbli_2020")
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
+    cursor.execute("SELECT judul, deskripsi FROM kbli_2020")
+
     for row in cursor.fetchall():
         for word in re.findall(r"[a-zA-Z]+", f"{row['judul']} {row['deskripsi']}".lower()):
             sym_spell.create_dictionary_entry(word, 1)
-    for word in UMKM_DOMAIN_WORDS:
-        sym_spell.create_dictionary_entry(word, 1000)
+
+    db.close()1000)
 
 build_symspell_dictionary()
 
