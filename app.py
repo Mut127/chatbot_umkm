@@ -37,8 +37,18 @@ DB_CONFIG = {
 
 
 # Model & Tokenizer
-model     = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
-tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+# model     = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+# tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+model = None
+tokenizer = None
+
+def get_model():
+    global model, tokenizer
+    if model is None:
+        model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
+        tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+    return model, tokenizer
+    
 le        = joblib.load("label_encoder.pkl")
 
 # Database
@@ -649,6 +659,7 @@ def chatbot_page():
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
+        model, tokenizer = get_model() 
         data       = request.get_json()
         session_id = data.get("session_id", "default")
 
