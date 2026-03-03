@@ -848,26 +848,27 @@ def chat():
 
     return jsonify({"reply": get_clarification_reply(session_id)})
 
-
 @app.route("/kbli/<kategori>")
 def kbli_kategori_page(kategori):
     db = get_db()
     cursor = db.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT nama_kategori
+        FROM kbli_2020
+        WHERE no = %s
+        LIMIT 1
+    """, (kategori.upper(),))
+    kategori_row = cursor.fetchone()
+
     cursor.execute("""
         SELECT DISTINCT kode, judul, deskripsi
         FROM kbli_2020
         WHERE no = %s
         ORDER BY kode
     """, (kategori.upper(),))
-    kategori_row = cursor.fetchone()
-
-    cursor.execute("""
-        SELECT kode, judul, deskripsi
-        FROM kbli_2020
-        WHERE no = %s
-        ORDER BY kode
-    """, (kategori.upper(),))
     kbli_list = cursor.fetchall()
+
     db.close()
 
     return render_template(
