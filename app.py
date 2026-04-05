@@ -47,7 +47,6 @@ def get_model():
         tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     return model, tokenizer
 
-le = joblib.load("label_encoder.pkl")
 
 # Database
 def get_db():
@@ -57,13 +56,21 @@ def get_db():
 sym_spell = SymSpell(max_dictionary_edit_distance=2, prefix_length=7)
 
 def build_symspell_dictionary():
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
     cursor.execute("SELECT judul, deskripsi FROM kbli_2020")
     for row in cursor.fetchall():
         for word in re.findall(r"[a-zA-Z]+", f"{row['judul']} {row['deskripsi']}".lower()):
             sym_spell.create_dictionary_entry(word, 1)
+
     for word in UMKM_DOMAIN_WORDS:
         sym_spell.create_dictionary_entry(word, 1000)
 
+    db.close()
+
+le = joblib.load("label_encoder.pkl")
+build_symspell_dictionary()
 
 # External Data
 with open("priority_from_desa.json", "r", encoding="utf-8") as f:
@@ -521,17 +528,24 @@ def clear_session(session_id: str) -> None:
 # Database Helpers
 
 def get_kbli_categories() -> list[dict]:
-    cursor.execute("""
-        SELECT DISTINCT no, nama_kategori
-        FROM kbli_2020
-        WHERE no IS NOT NULL AND kode != ''
-        ORDER BY no
-    """)
-    return [
-        {"kode": r["no"].strip(), "judul": r["nama_kategori"].strip()}
-        for r in cursor.fetchall()
-    ]
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
 
+    try:
+        cursor.execute("""
+            SELECT DISTINCT no, nama_kategori
+            FROM kbli_2020
+            WHERE no IS NOT NULL AND kode != ''
+            ORDER BY no
+        """)
+        result = [
+            {"kode": r["no"].strip(), "judul": r["nama_kategori"].strip()}
+            for r in cursor.fetchall()
+        ]
+        return result
+
+    finally:
+        db.close()
 
 def sanitize_llm_output(text: str) -> str:
     """Bersihkan output LLM dari simbol markdown dan format liar."""
@@ -624,7 +638,6 @@ def llm_reply_or(user_text: str, fallback: str):
 
 
 # Routes
-
 @app.route("/")
 def home():
     return render_template("index.html", kbli_categories=get_kbli_categories())
@@ -635,6 +648,9 @@ def chatbot_page():
 
 @app.route("/predict", methods=["POST"])
 def predict():
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
+
     try:
         data       = request.get_json()
         session_id = data.get("session_id", "default")
@@ -656,7 +672,9 @@ def predict():
 
         priority_prefix = detect_priority_prefix(text)
 
-        # IndoBERT inference
+        # 🔥 TAMBAHAN WAJIB (KAMU BELUM ADA)
+        model, tokenizer = get_model()
+
         inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=128)
         with torch.no_grad():
             outputs = model(**inputs)
@@ -673,6 +691,7 @@ def predict():
             cursor.execute(f"SELECT kode, judul, deskripsi FROM kbli_2020 WHERE {cond}")
         else:
             cursor.execute("SELECT kode, judul, deskripsi FROM kbli_2020")
+
         db_map = {r["kode"]: r for r in cursor.fetchall()}
 
         # Scoring
@@ -730,155 +749,162 @@ def predict():
             "best_kbli":       best_kbli,
             "chatbot_reply":   chat_reply,
         })
-
+    
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
+    finally:
+        db.close() 
+
 @app.route("/chat", methods=["POST"])
 def chat():
-    data       = request.get_json()
-    user_text  = data.get("text", "").strip()
-    session_id = data.get("session_id", "default")
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
 
-    if not user_text:
-        return jsonify({"reply": "Halo! Ada yang bisa saya bantu?"})
+    try:
+        data       = request.get_json()
+        user_text  = data.get("text", "").strip()
+        session_id = data.get("session_id", "default")
 
-    # Init sesi
-    user_clarification_count.setdefault(session_id, 0)
-    user_session_text.setdefault(session_id, "")
-    user_awaiting_business.setdefault(session_id, False)
+        if not user_text:
+            return jsonify({"reply": "Halo! Ada yang bisa saya bantu?"})
 
-    #1. Kode KBLI (4–5 digit) 
-    kbli_match = re.search(r'\b(\d{4,5})\b', user_text)
-    if kbli_match:
-        kode = kbli_match.group(1).zfill(5)
-        cursor.execute("SELECT kode, judul, deskripsi FROM kbli_2020 WHERE kode = %s", (kode,))
-        row = cursor.fetchone()
-        if row:
+        # Init sesi
+        user_clarification_count.setdefault(session_id, 0)
+        user_session_text.setdefault(session_id, "")
+        user_awaiting_business.setdefault(session_id, False)
+
+        # 1. Kode KBLI (4–5 digit)
+        kbli_match = re.search(r'\b(\d{4,5})\b', user_text)
+        if kbli_match:
+            kode = kbli_match.group(1).zfill(5)
+            cursor.execute("SELECT kode, judul, deskripsi FROM kbli_2020 WHERE kode = %s", (kode,))
+            row = cursor.fetchone()
+            if row:
+                return jsonify({
+                    "reply": (
+                        f"Informasi KBLI {row['kode']}:\n\n"
+                        f"{row['judul']}\n\n"
+                        f"{row['deskripsi']}\n\n"
+                        f"Apakah ini KBLI yang Anda cari?"
+                    )
+                })
+            return jsonify({"reply": f"Kode KBLI {user_text} tidak ditemukan. Coba periksa kembali ya."})
+
+        if is_thanks(user_text):
             return jsonify({
                 "reply": (
-                    f"Informasi KBLI {row['kode']}:\n\n"
-                    f"{row['judul']}\n\n"
-                    f"{row['deskripsi']}\n\n"
-                    f"Apakah ini KBLI yang Anda cari?"
+                    "Sama-sama! Semoga usaha Anda semakin lancar dan berkembang. 😊\n\n"
+                    "Kalau ada yang ingin ditanyakan lagi seputar KBLI, NIB, atau perizinan, "
+                    "saya siap membantu kapan saja."
                 )
             })
-        return jsonify({"reply": f"Kode KBLI {user_text} tidak ditemukan. Coba periksa kembali ya."})
-    
-    if is_thanks(user_text):
-        return jsonify({
-            "reply": (
-                "Sama-sama! Semoga usaha Anda semakin lancar dan berkembang. 😊\n\n"
-                "Kalau ada yang ingin ditanyakan lagi seputar KBLI, NIB, atau perizinan, "
-                "saya siap membantu kapan saja."
-            )
-        })
-    # 2. Topik UMKM (NIB, halal, perizinan, dll) 
-    topic = detect_umkm_topic(user_text)
-    if topic:
-        # Hanya panggil LLM untuk topik menu (butuh variasi), sisanya pakai static
-        if topic == "menu":
-            return llm_reply_or(user_text, UMKM_KNOWLEDGE[topic])
-        return jsonify({"reply": UMKM_KNOWLEDGE[topic]})
 
-    # 3. Salam murni 
-    if is_greeting(user_text) and not is_business_context(user_text):
-        return jsonify({
-            "reply": (
-                "Halo! Selamat datang di BAKUL KAHURIPAN 👋\n\n"
-                "Saya siap membantu Anda menemukan kode KBLI yang sesuai.\n\n"
-                "Coba ceritakan jenis usaha Anda, misalnya:\n"
-                "• saya membuka warung makan\n"
-                "• saya berjualan pakaian online\n"
-                "• saya membuka jasa jahit\n\n"
-                "Atau tanyakan seputar NIB, perizinan, atau sertifikasi halal."
-            )
-        })
+        # 2. Topik UMKM
+        topic = detect_umkm_topic(user_text)
+        if topic:
+            if topic == "menu":
+                return llm_reply_or(user_text, UMKM_KNOWLEDGE[topic])
+            return jsonify({"reply": UMKM_KNOWLEDGE[topic]})
 
-    # 4. Tanya KBLI tapi belum sebut jenis usaha 
-    if is_asking_about_kbli(user_text):
-        if has_business_description(user_text) or is_business_context(user_text):
-            # Sudah ada info usaha dalam pertanyaan → langsung classify
+        # 3. Salam murni
+        if is_greeting(user_text) and not is_business_context(user_text):
+            return jsonify({
+                "reply": (
+                    "Halo! Selamat datang di BAKUL KAHURIPAN 👋\n\n"
+                    "Saya siap membantu Anda menemukan kode KBLI yang sesuai.\n\n"
+                    "Coba ceritakan jenis usaha Anda, misalnya:\n"
+                    "• saya membuka warung makan\n"
+                    "• saya berjualan pakaian online\n"
+                    "• saya membuka jasa jahit\n\n"
+                    "Atau tanyakan seputar NIB, perizinan, atau sertifikasi halal."
+                )
+            })
+
+        # 4. Tanya KBLI tapi belum sebut jenis usaha
+        if is_asking_about_kbli(user_text):
+            if has_business_description(user_text) or is_business_context(user_text):
+                accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
+                user_session_text[session_id] = accumulated
+                return jsonify({"redirect": "predict"})
+            else:
+                user_awaiting_business[session_id] = True
+                return jsonify({
+                    "reply": (
+                        "Tentu, saya bantu carikan KBLI-nya!\n\n"
+                        "Ceritakan jenis usaha Anda lebih detail, misalnya:\n"
+                        "• saya jualan martabak di kios pinggir jalan\n"
+                        "• saya buka jasa servis HP di toko\n"
+                        "• saya produksi kue rumahan untuk dijual online"
+                    )
+                })
+
+        # 5. Ada deskripsi usaha langsung classify
+        is_describing_business = (
+            has_business_description(user_text)
+            or is_business_context(user_text)
+            or user_awaiting_business.get(session_id, False)
+        )
+
+        if is_describing_business:
             accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
             user_session_text[session_id] = accumulated
-            return jsonify({"redirect": "predict"})
-        else:
-            # Belum ada info usaha → minta deskripsi
-            user_awaiting_business[session_id] = True
-            return jsonify({
-                "reply": (
-                    "Tentu, saya bantu carikan KBLI-nya!\n\n"
-                    "Ceritakan jenis usaha Anda lebih detail, misalnya:\n"
-                    "• saya jualan martabak di kios pinggir jalan\n"
-                    "• saya buka jasa servis HP di toko\n"
-                    "• saya produksi kue rumahan untuk dijual online"
-                )
-            })
 
-    # 5. Ada deskripsi usaha langsung classify 
-    is_describing_business = (
-        has_business_description(user_text)
-        or is_business_context(user_text)
-        or user_awaiting_business.get(session_id, False)
-    )
+            if len(user_text.split()) >= 3:
+                clear_session(session_id)
+                return jsonify({"redirect": "predict"})
 
-    if is_describing_business:
-        accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
-        user_session_text[session_id] = accumulated
+            confidence   = model_confidence(normalize_text(correct_typo(accumulated)))
+            clarif_count = user_clarification_count.get(session_id, 0)
 
-        # Langsung redirect jika teks user_text sudah cukup (>= 3 kata)
-        if len(user_text.split()) >= 3:
-            clear_session(session_id)
-            return jsonify({"redirect": "predict"})
+            if confidence >= CONFIDENCE_THRESHOLD or clarif_count >= 1:
+                clear_session(session_id)
+                return jsonify({"redirect": "predict"})
 
-        confidence   = model_confidence(normalize_text(correct_typo(accumulated)))
-        clarif_count = user_clarification_count.get(session_id, 0)
+            user_clarification_count[session_id] = clarif_count + 1
+            user_awaiting_business[session_id]   = True
+            return jsonify({"reply": "Boleh ceritakan sedikit lebih detail?"})
 
-        if confidence >= CONFIDENCE_THRESHOLD or clarif_count >= 1:
-            clear_session(session_id)
-            return jsonify({"redirect": "predict"})
+        # 6. Tidak dikenali
+        return jsonify({
+            "reply": (
+                "Saya bisa membantu:\n"
+                "1. Mencari kode KBLI — ceritakan jenis usaha Anda\n"
+                "2. Info cara daftar NIB — ketik 'cara daftar NIB'\n"
+                "3. Info perizinan usaha — ketik 'info perizinan'\n"
+                "4. Info sertifikasi halal — ketik 'info halal'\n"
+                "5. Info bantuan UMKM — ketik 'info bantuan'"
+            )
+        })
 
-        user_clarification_count[session_id] = clarif_count + 1
-        user_awaiting_business[session_id]   = True
-        return jsonify({"reply": "Boleh ceritakan sedikit lebih detail?"})
-
-    # 6. Tidak dikenali
-    return jsonify({
-        "reply": (
-            "Saya bisa membantu:\n"
-            "1. Mencari kode KBLI — ceritakan jenis usaha Anda\n"
-            "2. Info cara daftar NIB — ketik 'cara daftar NIB'\n"
-            "3. Info perizinan usaha — ketik 'info perizinan'\n"
-            "4. Info sertifikasi halal — ketik 'info halal'\n"
-            "5. Info bantuan UMKM — ketik 'info bantuan'"
-        )
-    })
-
-
+    finally:
+        db.close()
 @app.route("/kbli/<kategori>")
 def kbli_kategori_page(kategori):
-    cursor.execute("""
-        SELECT nama_kategori
-        FROM kbli_2020
-        WHERE no = %s
-        LIMIT 1
-    """, (kategori.upper(),))
-    kategori_row = cursor.fetchone()
+    db = get_db()
+    cursor = db.cursor(dictionary=True)
 
-    cursor.execute("""
-        SELECT kode, judul, deskripsi
-        FROM kbli_2020
-        WHERE no = %s
-        ORDER BY kode
-    """, (kategori.upper(),))
-    kbli_list = cursor.fetchall()
+    try:
+        cursor.execute("""
+            SELECT nama_kategori FROM kbli_2020
+            WHERE no = %s LIMIT 1
+        """, (kategori.upper(),))
+        kategori_row = cursor.fetchone()
 
-    return render_template(
-        "detail.html",
-        kategori=kategori.upper(),
-        kategori_nama=kategori_row["nama_kategori"] if kategori_row else "",
-        kbli_list=kbli_list
-    )
+        cursor.execute("""
+            SELECT kode, judul, deskripsi FROM kbli_2020
+            WHERE no = %s ORDER BY kode
+        """, (kategori.upper(),))
+        kbli_list = cursor.fetchall()
+
+        return render_template(
+            "detail.html",
+            kategori=kategori.upper(),
+            kategori_nama=kategori_row["nama_kategori"] if kategori_row else "",
+            kbli_list=kbli_list
+        )
+    finally:
+        db.close()
     
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
