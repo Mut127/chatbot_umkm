@@ -370,7 +370,7 @@ TOPIC_RULES = [
 
 SPECIFIC_BOOST = {
     "warung makan":  {"contains": ["warung makan", "rumah makan"],                                   "boost": 8, "prefix": "56"},
-    "restoran":      {"contains": ["restoran", "rumah makan", "makanan"],                                 "boost": 8,"prefix": "56"},
+    "restoran":      {"contains": ["restoran", "rumah makan", "makanan", "masakan"],                 "boost": 8,"prefix": "56"},
     "rumah makan":   {"contains": ["warung makan", "rumah makan"],                                   "boost": 8, "prefix": "56"},
     "kedai makan":   {"contains": ["kedai", "makanan"],                                              "boost": 8, "prefix": "56"},
     "pemasok":       {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"], "boost": 8, "prefix": "46"},
@@ -423,7 +423,11 @@ def correct_typo(text: str) -> str:
     corrected = []
     for word in text.split():
         suggestions = sym_spell.lookup(word, Verbosity.CLOSEST, max_edit_distance=2)
-        corrected.append(suggestions[0].term if suggestions else word)
+        if suggestions and suggestions[0].distance <= 1:
+            corrected.append(suggestions[0].term)
+        else:
+            corrected.append(word)
+
     return " ".join(corrected)
 
 
@@ -602,8 +606,8 @@ def generate_chat_response(text: str, best_kbli: dict) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": (
                 f"Hasil klasifikasi:\n"
-                f"Kode: {best_kbli['kode']}\n"
-                f"Judul: {best_kbli['judul']}\n"
+                f"📌 Kode: {best_kbli['kode']}\n"
+                f"📋 Judul: {best_kbli['judul']}\n\n"
                 f"Deskripsi: {best_kbli['deskripsi']}\n\n"
                 "Jelaskan dengan bahasa ramah dan mudah dipahami."
             )},
