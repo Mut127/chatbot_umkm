@@ -578,8 +578,8 @@ def generate_chat_response(text: str, best_kbli: dict) -> str:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": (
                 f"Hasil klasifikasi:\n"
-                f"Kode: {best_kbli['kode']}\n"
-                f"Judul: {best_kbli['judul']}\n"
+                f"📌 Kode: {best_kbli['kode']}\n"
+                f"📋 Judul: {best_kbli['judul']}\n\n"
                 f"Deskripsi: {best_kbli['deskripsi']}\n\n"
                 "Jelaskan dengan bahasa ramah dan mudah dipahami."
             )},
@@ -601,7 +601,7 @@ def llm_reply_or(user_text: str, fallback: str):
         try:
             messages = [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": user_text},
+                {"role": "user",   "content": fallback}, 
             ]
             return jsonify({"reply": call_openrouter(messages)})
         except Exception as e:
