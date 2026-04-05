@@ -353,8 +353,8 @@ TOPIC_RULES = [
 ]
 
 SPECIFIC_BOOST = {
-    "warung makan":  {"contains": ["warung makan", "rumah makan"],                                    "boost": 8,  "prefix": "56"},
-    "rumah makan":   {"contains": ["warung makan", "rumah makan"],                                    "boost": 8,  "prefix": "56"},
+    "warung makan":  {"contains": ["warung makan", "rumah makan", "restoran"],                        "boost": 8,  "prefix": "56"},
+    "rumah makan":   {"contains": ["warung makan", "rumah makan", "restoran"],                        "boost": 8,  "prefix": "56"},
     "kedai makan":   {"contains": ["kedai", "makanan"],                                               "boost": 8,  "prefix": "56"},
     "nasi goreng":   {"contains": ["makanan", "keliling", "tempat tidak tetap", "nasi"],              "boost": 8,  "prefix": "56"},
     "gorengan":      {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 8,  "prefix": "56"},
@@ -362,6 +362,9 @@ SPECIFIC_BOOST = {
     "cilok":         {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 8,  "prefix": "56"},
     "sate":          {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 7,  "prefix": "56"},
     "mie ayam":      {"contains": ["makanan", "keliling", "tempat tidak tetap"],                      "boost": 7,  "prefix": "56"},
+    "warung":        {"contains": ["makanan", "minuman"],                                             "boost": 10, "prefix": "56"},
+    "nasi":          {"contains": ["makanan"],                                                        "boost": 6,  "prefix": "56"},
+    "nasi padang":   {"contains": ["makanan"],                                                        "boost": 12, "prefix": "56"},
     # FIX: minuman keliling
     "es doger":      {"contains": ["minuman", "keliling", "tempat tidak tetap"],                      "boost": 10, "prefix": "56"},
     "doger":         {"contains": ["minuman", "keliling", "tempat tidak tetap"],                      "boost": 10, "prefix": "56"},
@@ -495,10 +498,11 @@ def apply_specific_boost(raw_text: str, kode: str, deskripsi: str) -> int:
     desc  = deskripsi.lower()
     for keyword, rule in SPECIFIC_BOOST.items():
         if keyword in txt:
-            if any(c in desc for c in rule["contains"]) and kode.startswith(rule["prefix"]):
-                boost += rule["boost"]
-            else:
-                boost -= 2
+            if kode.startswith(rule["prefix"]):
+                if any(c in desc for c in rule["contains"]):
+                    boost += rule["boost"]
+                else:
+                    boost += rule["boost"] // 2  
     return boost
 
 
