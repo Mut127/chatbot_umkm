@@ -279,7 +279,7 @@ BUSINESS_KEYWORDS = [
     # Jasa & layanan
     "jasa", "service", "servis", "perbaikan", "reparasi",
     "salon", "laundry", "kos", "kontrakan", "bengkel",
-    "ojek", "angkutan", "ekspedisi", "pengiriman",
+    "ojek", "angkutan", "ekspedisi", "pengiriman", "cukur", "barber", "barbershop", "potong rambut",
     # Industri / produksi
     "pabrik", "industri", "konveksi", "percetakan",
     "manufaktur", "pengolahan",
@@ -288,7 +288,7 @@ BUSINESS_KEYWORDS = [
     "peternakan", "perikanan",
     # Produk makanan spesifik
     "cilok", "bakso", "gorengan", "kue", "nasi", "ayam",
-    "tahu", "tempe", "mie", "soto", "catering", "kuliner",
+    "tahu", "tempe", "mie", "soto", "catering", "kuliner", "cireng"
     # Produk non-makanan
     "pakaian", "baju", "sepatu", "tas", "elektronik",
     "handphone", "hp", "komputer",
@@ -799,6 +799,33 @@ def chat():
                 )
             })
 
+        # 5. Ada deskripsi usaha langsung classify
+        is_describing_business = (
+            has_business_description(user_text)
+            or is_business_context(user_text)
+            or user_awaiting_business.get(session_id, False)
+        )
+
+        if is_describing_business:
+            model, tokenizer = get_model()
+            accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
+            user_session_text[session_id] = accumulated
+
+            if len(user_text.split()) >= 3:
+                clear_session(session_id)
+                return jsonify({"redirect": "predict"})
+
+            confidence   = model_confidence(normalize_text(correct_typo(accumulated)))
+            clarif_count = user_clarification_count.get(session_id, 0)
+
+            if confidence >= CONFIDENCE_THRESHOLD or clarif_count >= 1:
+                clear_session(session_id)
+                return jsonify({"redirect": "predict"})
+
+            user_clarification_count[session_id] = clarif_count + 1
+            user_awaiting_business[session_id]   = True
+            return jsonify({"reply": "Boleh ceritakan sedikit lebih detail?"})
+
         # 2. Topik UMKM
         topic = detect_umkm_topic(user_text)
         if topic:
@@ -838,32 +865,6 @@ def chat():
                     )
                 })
 
-        # 5. Ada deskripsi usaha langsung classify
-        is_describing_business = (
-            has_business_description(user_text)
-            or is_business_context(user_text)
-            or user_awaiting_business.get(session_id, False)
-        )
-
-        if is_describing_business:
-            accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
-            user_session_text[session_id] = accumulated
-
-            if len(user_text.split()) >= 3:
-                clear_session(session_id)
-                return jsonify({"redirect": "predict"})
-
-            confidence   = model_confidence(normalize_text(correct_typo(accumulated)))
-            clarif_count = user_clarification_count.get(session_id, 0)
-
-            if confidence >= CONFIDENCE_THRESHOLD or clarif_count >= 1:
-                clear_session(session_id)
-                return jsonify({"redirect": "predict"})
-
-            user_clarification_count[session_id] = clarif_count + 1
-            user_awaiting_business[session_id]   = True
-            return jsonify({"reply": "Boleh ceritakan sedikit lebih detail?"})
-
         # 6. Tidak dikenali
         return jsonify({
             "reply": (
@@ -878,6 +879,7 @@ def chat():
 
     finally:
         db.close()
+        
 @app.route("/kbli/<kategori>")
 def kbli_kategori_page(kategori):
     db = get_db()
