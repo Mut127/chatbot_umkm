@@ -648,7 +648,7 @@ def predict():
 
         text = correct_typo(normalize_text(combined_raw))
 
-        if len(text.split()) < 3:
+        if len(text.split()) < 2:
             return jsonify({
                 "success": False,
                 "error": "Deskripsi usaha terlalu singkat. Mohon jelaskan lebih detail.",
@@ -827,7 +827,7 @@ def chat():
     if is_describing_business:
         accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
         user_session_text[session_id] = accumulated
-        if has_business_description(user_text) and len(accumulated.split()) >= 4:
+        if is_business_context(user_text) and len(accumulated.split()) >= 3:
             return jsonify({"redirect": "predict"})
 
         confidence   = model_confidence(normalize_text(correct_typo(accumulated)))
