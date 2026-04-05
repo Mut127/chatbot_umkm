@@ -262,7 +262,7 @@ FOOD_KEYWORDS = {
     "cilok", "bakso", "makanan", "jajanan", "minuman",
     "warung", "kaki", "lima", "gerobak", "kuliner", "dagangan",
     "mie", "ayam", "nasi", "soto", "gorengan", "kue", "es",
-    "tahu", "tempe", "pecel", "sate", "seafood", "catering",
+    "tahu", "tempe", "pecel", "sate", "seafood", "catering",  "restoran",  "masakan", "rencang",
 }
 
 BUSINESS_KEYWORDS = [
@@ -288,7 +288,7 @@ BUSINESS_KEYWORDS = [
     "peternakan", "perikanan",
     # Produk makanan spesifik
     "cilok", "bakso", "gorengan", "kue", "nasi", "ayam",
-    "tahu", "tempe", "mie", "soto", "catering", "kuliner", "cireng"
+    "tahu", "tempe", "mie", "soto", "catering", "kuliner", "cireng", "nasi", "lauk pauk", "rencang",
     # Produk non-makanan
     "pakaian", "baju", "sepatu", "tas", "elektronik",
     "handphone", "hp", "komputer",
@@ -297,7 +297,7 @@ BUSINESS_KEYWORDS = [
     "properti", "travel", "wisata",
     # Tempat usaha khusus
     "restoran", "rumah makan", "kedai", "cafe", "kafe",
-    "salon kecantikan", "barbershop",
+    "salon kecantikan", "barbershop", "masakan",
 ]
 
 
