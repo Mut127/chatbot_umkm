@@ -69,13 +69,9 @@ def build_symspell_dictionary():
 
     db.close()
 
-le = joblib.load("label_encoder.pkl")
-build_symspell_dictionary()
-
 # External Data
 with open("priority_from_desa.json", "r", encoding="utf-8") as f:
     PRIORITY_FROM_DESA: dict[str, set] = {k: set(v) for k, v in json.load(f).items()}
-
 
 # Session State (in-memory)
 user_clarification_count: dict[str, int]  = {}
@@ -405,6 +401,9 @@ THANKS_RE = re.compile(
     r"[\s!.,]*$",
     re.IGNORECASE,
 )
+
+le = joblib.load("label_encoder.pkl")
+build_symspell_dictionary()
 
 def is_thanks(text: str) -> bool:
     return bool(THANKS_RE.match(text.strip()))
