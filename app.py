@@ -113,7 +113,7 @@ UMKM_KNOWLEDGE = {
         "Butuh bantuan menemukan kode KBLI? Ceritakan jenis usaha Anda 😊\n"
     ),
     "perizinan": (
-        "📄 Informasi Perizinan Usaha (UMKM): \n"
+        "📄 <strong>Informasi Perizinan Usaha (UMKM):</strong> \n"
         "Untuk memulai usaha secara legal, ada beberapa perizinan yang perlu dimiliki:\n"
         "1. NIB (Nomor Induk Berusaha) — wajib, daftar di oss.go.id (gratis)\n"
         "2. Sertifikat Standar — untuk usaha risiko menengah\n"
@@ -176,7 +176,7 @@ UMKM_KNOWLEDGE = {
         "Sertifikat berlaku 4 tahun."
     ),
     "bantuan": (
-        "💰 Program Bantuan UMKM:\n\n"
+        "💰 <strong>Program Bantuan UMKM:</strong>\n"
         "• BPUM – Bantuan Produktif Usaha Mikro\n"
         "• KUR – Kredit Usaha Rakyat bunga rendah\n"
         "• LPDB – Pinjaman dari Lembaga Pengelola Dana Bergulir\n"
@@ -804,7 +804,7 @@ def chat():
                 )
             })
 
-        # 5. Ada deskripsi usaha langsung classify
+        # 2. Ada deskripsi usaha langsung classify
         is_describing_business = (
             has_business_description(user_text)
             or is_business_context(user_text)
@@ -815,12 +815,7 @@ def chat():
             model, tokenizer = get_model()
             accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
             user_session_text[session_id] = accumulated
-            print(f"[DEBUG] user_text='{user_text}'")
-            print(f"[DEBUG] has_desc={has_business_description(user_text)}")
-            print(f"[DEBUG] is_ctx={is_business_context(user_text)}")
-            print(f"[DEBUG] awaiting={user_awaiting_business.get(session_id)}")
-            print(f"[DEBUG] words={len(user_text.split())}")
-
+    
             if len(user_text.split()) >= 3:
                 clear_session(session_id)
                 return jsonify({"redirect": "predict"})
@@ -836,14 +831,14 @@ def chat():
             user_awaiting_business[session_id]   = True
             return jsonify({"reply": "Boleh ceritakan sedikit lebih detail?"})
 
-        # 2. Topik UMKM
+        # 3. Topik UMKM
         topic = detect_umkm_topic(user_text)
         if topic:
             if topic == "menu":
                 return llm_reply_or(user_text, UMKM_KNOWLEDGE[topic])
             return jsonify({"reply": UMKM_KNOWLEDGE[topic]})
 
-        # 3. Salam murni
+        # 4. Salam murni
         if is_greeting(user_text) and not is_business_context(user_text):
             return jsonify({
                 "reply": (
@@ -857,7 +852,7 @@ def chat():
                 )
             })
 
-        # 4. Tanya KBLI tapi belum sebut jenis usaha
+        # 5. Tanya KBLI tapi belum sebut jenis usaha
         if is_asking_about_kbli(user_text):
             if has_business_description(user_text) or is_business_context(user_text):
                 accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
