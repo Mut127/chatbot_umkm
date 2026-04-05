@@ -815,6 +815,11 @@ def chat():
             model, tokenizer = get_model()
             accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
             user_session_text[session_id] = accumulated
+            print(f"[DEBUG] user_text='{user_text}'")
+            print(f"[DEBUG] has_desc={has_business_description(user_text)}")
+            print(f"[DEBUG] is_ctx={is_business_context(user_text)}")
+            print(f"[DEBUG] awaiting={user_awaiting_business.get(session_id)}")
+            print(f"[DEBUG] words={len(user_text.split())}")
 
             if len(user_text.split()) >= 3:
                 clear_session(session_id)
