@@ -816,8 +816,6 @@ def chat():
             })
 
     # 5. Ada deskripsi usaha langsung classify 
-    # Gabungkan semua kondisi yang mengindikasikan deskripsi usaha:
-    # has_business_description, is_business_context, atau sedang awaiting
     is_describing_business = (
         has_business_description(user_text)
         or is_business_context(user_text)
@@ -827,28 +825,22 @@ def chat():
     if is_describing_business:
         accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
         user_session_text[session_id] = accumulated
-        if is_business_context(user_text) and len(accumulated.split()) >= 3:
+
+        # Langsung redirect jika teks user_text sudah cukup (>= 3 kata)
+        if len(user_text.split()) >= 3:
+            clear_session(session_id)
             return jsonify({"redirect": "predict"})
 
         confidence   = model_confidence(normalize_text(correct_typo(accumulated)))
         clarif_count = user_clarification_count.get(session_id, 0)
 
-        print(f"[Classify] session={session_id} conf={confidence:.4f} clarif={clarif_count} | '{accumulated[:80]}'")
-
-        # Langsung classify jika confidence cukup ATAU sudah clarifikasi 1x
-        # (turunkan threshold agar tidak loop minta klarifikasi terus)
         if confidence >= CONFIDENCE_THRESHOLD or clarif_count >= 1:
-            # clear_session(session_id)
+            clear_session(session_id)
             return jsonify({"redirect": "predict"})
 
-        # Baru clarifikasi jika confidence rendah dan belum pernah clarifikasi
         user_clarification_count[session_id] = clarif_count + 1
         user_awaiting_business[session_id]   = True
-
-        clarif_msg = (
-            "Boleh ceritakan sedikit lebih detail? "
-        )
-        return jsonify({"reply": clarif_msg})
+        return jsonify({"reply": "Boleh ceritakan sedikit lebih detail?"})
 
     # 6. Tidak dikenali
     return jsonify({
