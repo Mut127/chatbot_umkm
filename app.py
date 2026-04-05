@@ -370,6 +370,7 @@ TOPIC_RULES = [
 
 SPECIFIC_BOOST = {
     "warung makan":  {"contains": ["warung makan", "rumah makan"],                                   "boost": 8, "prefix": "56"},
+    "restoran":      {"contains": ["restoran", "rumah makan", "makanan"],                                 "boost": 8,"prefix": "56"},
     "rumah makan":   {"contains": ["warung makan", "rumah makan"],                                   "boost": 8, "prefix": "56"},
     "kedai makan":   {"contains": ["kedai", "makanan"],                                              "boost": 8, "prefix": "56"},
     "pemasok":       {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"], "boost": 8, "prefix": "46"},
@@ -710,7 +711,7 @@ def predict():
 
             if is_food:
                 if any(k in deskripsi for k in ["makanan", "minuman", "restoran", "warung"]):
-                    relevance += 4
+                    relevance += 8
                 else:
                     relevance -= 2
 
