@@ -891,15 +891,21 @@ def kbli_kategori_page(kategori):
     cursor = db.cursor(dictionary=True)
 
     try:
+        # Ambil nama kategori
         cursor.execute("""
-            SELECT nama_kategori FROM kbli_2020
-            WHERE no = %s LIMIT 1
+            SELECT nama_kategori 
+            FROM kbli_2020
+            WHERE no = %s 
+            LIMIT 1
         """, (kategori.upper(),))
         kategori_row = cursor.fetchone()
 
+        # Ambil daftar KBLI TANPA DUPLIKAT
         cursor.execute("""
-            SELECT kode, judul, deskripsi FROM kbli_2020
-            WHERE no = %s ORDER BY kode
+            SELECT DISTINCT kode, judul, deskripsi 
+            FROM kbli_2020
+            WHERE no = %s 
+            ORDER BY kode
         """, (kategori.upper(),))
         kbli_list = cursor.fetchall()
 
@@ -909,7 +915,12 @@ def kbli_kategori_page(kategori):
             kategori_nama=kategori_row["nama_kategori"] if kategori_row else "",
             kbli_list=kbli_list
         )
+
+    except Exception as e:
+        return f"Terjadi error: {str(e)}"
+
     finally:
+        cursor.close()
         db.close()
     
 if __name__ == "__main__":
