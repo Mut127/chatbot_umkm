@@ -280,6 +280,7 @@ BUSINESS_KEYWORDS = [
     "jasa", "service", "servis", "perbaikan", "reparasi",
     "salon", "laundry", "kos", "kontrakan", "bengkel",
     "ojek", "angkutan", "ekspedisi", "pengiriman", "cukur", "barber", "barbershop", "potong rambut",
+    "rental", "sewa", "persewaan",
     # Industri / produksi
     "pabrik", "industri", "konveksi", "percetakan",
     "manufaktur", "pengolahan",
@@ -385,6 +386,11 @@ SPECIFIC_BOOST = {
     "bengkel":        {"contains": ["bengkel", "reparasi", "kendaraan"],                              "boost": 6,  "prefix": "45"},
     "salon":          {"contains": ["salon", "kecantikan", "rambut"],                                 "boost": 6,  "prefix": "96"},
     "laundry":        {"contains": ["laundry", "linen", "cucian"],                                    "boost": 6,  "prefix": "96"},
+    "rental mobil":   {"contains": ["angkutan", "sewa", "kendaraan", "rental"],                       "boost": 12, "prefix": "77"},
+    "sewa mobil":     {"contains": ["angkutan", "sewa", "kendaraan", "rental"],                       "boost": 12, "prefix": "77"},
+    "rental":         {"contains": ["sewa", "kendaraan", "angkutan"],                                 "boost": 10, "prefix": "77"},
+    "ojek":           {"contains": ["angkutan", "ojek", "taksi"],                                     "boost": 8,  "prefix": "49"},
+    "taksi":          {"contains": ["angkutan", "taksi"],                                             "boost": 8,  "prefix": "49"},
 }
 
 # Kata-kata domain UMKM yang wajib ada di kamus SymSpell
@@ -858,8 +864,9 @@ def chat():
         # 5. Tanya KBLI tapi belum sebut jenis usaha
         if is_asking_about_kbli(user_text):
             words_deskriptif = [w for w in user_text.lower().split() 
-                        if w not in {"berapa","kode","kbli","untuk","gimana",
-                                     "cara","apa","bagaimana","tolong","bantu"}]
+                         if w not in {"berapa","kode","kbli","untuk","gimana",
+                         "cara","apa","bagaimana","tolong","bantu",
+                         "usaha","yang","dengan","di","dan"}]
             if len(words_deskriptif) >= 3 or is_business_context(user_text):
                 accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
                 user_session_text[session_id] = accumulated
