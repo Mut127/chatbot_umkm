@@ -369,20 +369,22 @@ TOPIC_RULES = [
 ]
 
 SPECIFIC_BOOST = {
-    "warung makan":  {"contains": ["warung makan", "rumah makan"],                                   "boost": 8, "prefix": "56"},
-    "restoran":      {"contains": ["restoran", "rumah makan", "makanan", "masakan"],                 "boost": 8,"prefix": "56"},
-    "rumah makan":   {"contains": ["warung makan", "rumah makan"],                                   "boost": 8, "prefix": "56"},
-    "kedai makan":   {"contains": ["kedai", "makanan"],                                              "boost": 8, "prefix": "56"},
-    "pemasok":       {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"], "boost": 8, "prefix": "46"},
-    "distributor":   {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"], "boost": 8, "prefix": "46"},
-    "grosir":        {"contains": ["perdagangan besar", "grosir"],                                   "boost": 8, "prefix": "46"},
-    "tahu":          {"contains": ["tahu"],                                                           "boost": 6, "prefix": "10"},
-    "tempe":         {"contains": ["tempe"],                                                          "boost": 6, "prefix": "10"},
-    "jahit":         {"contains": ["jahit", "konveksi", "pakaian"],                                  "boost": 6, "prefix": "14"},
-    "menjahit":      {"contains": ["jahit", "konveksi", "pakaian"],                                  "boost": 6, "prefix": "14"},
-    "bengkel":       {"contains": ["bengkel", "reparasi", "kendaraan"],                              "boost": 6, "prefix": "45"},
-    "salon":         {"contains": ["salon", "kecantikan", "rambut"],                                 "boost": 6, "prefix": "96"},
-    "laundry":       {"contains": ["laundry", "linen", "cucian"],                                    "boost": 6, "prefix": "96"},
+    "warung makan":   {"contains": ["warung makan", "rumah makan"],                                   "boost": 12, "prefix": "56"},
+    "restoran":       {"contains": ["restoran", "rumah makan", "masakan", "makanan"],                 "boost": 12, "prefix": "56"},
+    "rumah makan":    {"contains": ["warung makan", "rumah makan"],                                   "boost": 12, "prefix": "56"},
+    "kedai makan":    {"contains": ["kedai", "makanan"],                                              "boost": 12, "prefix": "56"},
+    "makanan padang": {"contains": ["rumah makan", "masakan", "makanan"],                             "boost": 12, "prefix": "56"},
+    "padang":         {"contains": ["rumah makan", "masakan", "makanan"],                             "boost": 10, "prefix": "56"},
+    "pemasok":        {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"], "boost": 8,  "prefix": "46"},
+    "distributor":    {"contains": ["perdagangan besar", "distributor", "pemasok", "grosir", "agen"], "boost": 8,  "prefix": "46"},
+    "grosir":         {"contains": ["perdagangan besar", "grosir"],                                   "boost": 8,  "prefix": "46"},
+    "tahu":           {"contains": ["tahu"],                                                          "boost": 6,  "prefix": "10"},
+    "tempe":          {"contains": ["tempe"],                                                         "boost": 6,  "prefix": "10"},
+    "jahit":          {"contains": ["jahit", "konveksi", "pakaian"],                                  "boost": 6,  "prefix": "14"},
+    "menjahit":       {"contains": ["jahit", "konveksi", "pakaian"],                                  "boost": 6,  "prefix": "14"},
+    "bengkel":        {"contains": ["bengkel", "reparasi", "kendaraan"],                              "boost": 6,  "prefix": "45"},
+    "salon":          {"contains": ["salon", "kecantikan", "rambut"],                                 "boost": 6,  "prefix": "96"},
+    "laundry":        {"contains": ["laundry", "linen", "cucian"],                                    "boost": 6,  "prefix": "96"},
 }
 
 # Kata-kata domain UMKM yang wajib ada di kamus SymSpell
@@ -804,13 +806,20 @@ def chat():
                 )
             })
 
-        # 2. Ada deskripsi usaha langsung classify
+        # 2. Topik UMKM
+        topic = detect_umkm_topic(user_text)
+        if topic:
+            if topic == "menu":
+                return llm_reply_or(user_text, UMKM_KNOWLEDGE[topic])
+            return jsonify({"reply": UMKM_KNOWLEDGE[topic]})
+
+        # 3. Ada deskripsi usaha langsung classify
         is_describing_business = (
             has_business_description(user_text)
             or is_business_context(user_text)
             or user_awaiting_business.get(session_id, False)
-        )
-
+        ) and not is_asking_about_kbli(user_text)
+        
         if is_describing_business:
             model, tokenizer = get_model()
             accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
@@ -831,13 +840,7 @@ def chat():
             user_awaiting_business[session_id]   = True
             return jsonify({"reply": "Boleh ceritakan sedikit lebih detail?"})
 
-        # 3. Topik UMKM
-        topic = detect_umkm_topic(user_text)
-        if topic:
-            if topic == "menu":
-                return llm_reply_or(user_text, UMKM_KNOWLEDGE[topic])
-            return jsonify({"reply": UMKM_KNOWLEDGE[topic]})
-
+        
         # 4. Salam murni
         if is_greeting(user_text) and not is_business_context(user_text):
             return jsonify({
@@ -854,7 +857,10 @@ def chat():
 
         # 5. Tanya KBLI tapi belum sebut jenis usaha
         if is_asking_about_kbli(user_text):
-            if has_business_description(user_text) or is_business_context(user_text):
+            words_deskriptif = [w for w in user_text.lower().split() 
+                        if w not in {"berapa","kode","kbli","untuk","gimana",
+                                     "cara","apa","bagaimana","tolong","bantu"}]
+            if len(words_deskriptif) >= 3 or is_business_context(user_text):
                 accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
                 user_session_text[session_id] = accumulated
                 return jsonify({"redirect": "predict"})
