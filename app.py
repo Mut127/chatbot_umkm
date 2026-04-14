@@ -495,18 +495,21 @@ def keyword_relevance(query: str, description: str) -> int:
 
 
 def apply_specific_boost(raw_text: str, kode: str, deskripsi: str) -> int:
-    """Boost/penalti berdasarkan kata kunci spesifik."""
     boost = 0
     txt   = raw_text.lower()
     desc  = deskripsi.lower()
+
     for keyword, rule in SPECIFIC_BOOST.items():
         if keyword in txt:
             if any(c in desc for c in rule["contains"]) and kode.startswith(rule["prefix"]):
-                boost += rule["boost"]
+                boost += rule["boost"] * 3   
             else:
-                boost -= 2
+                boost -= rule["boost"] 
+
     return boost
 
+def is_irrelevant_category(kode: str) -> bool:
+    return kode.startswith(("68", "84", "85"))
 
 def detect_priority_prefix(text: str) -> list[str] | None:
     words    = set(text.lower().split())
@@ -658,6 +661,16 @@ def home():
 def chatbot_page():
     return render_template("chatbot.html")
 
+
+def detect_strong_prefix(text: str) -> str | None:
+    t = text.lower()
+
+    for keyword, rule in SPECIFIC_BOOST.items():
+        if keyword in t:
+            return rule["prefix"]
+
+    return None
+    
 @app.route("/predict", methods=["POST"])
 def predict():
     db = get_db()
@@ -682,7 +695,10 @@ def predict():
                 "error": "Deskripsi usaha terlalu singkat. Mohon jelaskan lebih detail.",
             })
 
+        strong_prefix = detect_strong_prefix(text)
         priority_prefix = detect_priority_prefix(text)
+        if strong_prefix:
+            priority_prefix = [strong_prefix]
 
         # 🔥 TAMBAHAN WAJIB (KAMU BELUM ADA)
         model, tokenizer = get_model()
@@ -713,31 +729,44 @@ def predict():
         for i, kode in enumerate(kode_list):
             if kode not in db_map:
                 continue
-
+        
             row       = db_map[kode]
             deskripsi = row["deskripsi"].lower()
             relevance = keyword_relevance(text, deskripsi)
-
+        
             if is_non_business_kbli(row["judul"].upper()):
                 relevance -= 3
-
+        
+            if is_irrelevant_category(kode):
+                relevance -= 15
+        
             if is_food:
                 if any(k in deskripsi for k in ["makanan", "minuman", "restoran", "warung"]):
                     relevance += 8
                 else:
                     relevance -= 2
-
+        
             relevance += apply_specific_boost(combined_raw, kode, deskripsi)
-
+        
+            if strong_prefix:
+                if kode.startswith(strong_prefix):
+                    relevance += 25
+                else:
+                    relevance -= 5
+        
             results.append({
-                "kode":      kode,
-                "judul":     row["judul"],
+                "kode": kode,
+                "judul": row["judul"],
                 "deskripsi": row["deskripsi"],
-                "score":     round(float(scores[i]), 4),
+                "score": round(float(scores[i]), 4),
                 "relevance": relevance,
             })
 
-        results  = sorted(results, key=lambda x: (x["relevance"], x["score"]), reverse=True)
+        results = sorted(
+            results,
+            key=lambda x: (x["relevance"] * 2 + x["score"]),
+            reverse=True
+        )
         filtered = [r for r in results if r["relevance"] >= 1 and r["score"] >= 0.03] or results
         filtered = filtered[:5]
 
