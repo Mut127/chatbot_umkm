@@ -666,7 +666,7 @@ def detect_strong_prefix(text: str) -> str | None:
     t = text.lower()
 
     for keyword, rule in SPECIFIC_BOOST.items():
-        if keyword in t:
+        if keyword in t and rule["boost"] >= 10:
             return rule["prefix"]
 
     return None
@@ -688,18 +688,20 @@ def predict():
             return jsonify({"success": False, "error": "Teks input kosong"})
 
         text = correct_typo(normalize_text(combined_raw))
+        
+        strong_prefix = detect_strong_prefix(text)
+        priority_prefix = detect_priority_prefix(text) or []
+
+        if strong_prefix and not priority_prefix:
+            priority_prefix = [strong_prefix]
+            priority_prefix = list(set(priority_prefix))
 
         if len(text.split()) < 2:
             return jsonify({
                 "success": False,
                 "error": "Deskripsi usaha terlalu singkat. Mohon jelaskan lebih detail.",
             })
-
-        strong_prefix = detect_strong_prefix(text)
-        priority_prefix = detect_priority_prefix(text)
-        if strong_prefix:
-            priority_prefix = [strong_prefix]
-
+     
         # 🔥 TAMBAHAN WAJIB (KAMU BELUM ADA)
         model, tokenizer = get_model()
 
@@ -712,6 +714,12 @@ def predict():
         pred_ids  = topk.indices.tolist()
         scores    = topk.values.tolist()
         kode_list = [le.inverse_transform([pid])[0].zfill(5) for pid in pred_ids]
+        
+        if strong_prefix:
+            filtered_kode = [k for k in kode_list if k.startswith(strong_prefix)]
+            
+            if len(filtered_kode) >= 2:
+                kode_list = filtered_kode
 
         # Ambil data KBLI dari DB
         if priority_prefix:
@@ -745,14 +753,10 @@ def predict():
                     relevance += 8
                 else:
                     relevance -= 2
-        
+                    
             relevance += apply_specific_boost(combined_raw, kode, deskripsi)
-        
-            if strong_prefix:
-                if kode.startswith(strong_prefix):
-                    relevance += 25
-                else:
-                    relevance -= 5
+            if strong_prefix and kode.startswith(strong_prefix):
+                relevance += 10
         
             results.append({
                 "kode": kode,
