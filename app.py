@@ -21,7 +21,7 @@ CORS(app)
 
 # ── Configuration ──────────────────────────────────────────────────────────────
 MODEL_PATH           = "Muthi17/chatbot_umkm"
-CONFIDENCE_THRESHOLD = 0.40
+CONFIDENCE_THRESHOLD = 0.6
 MAX_CLARIFICATION    = 3
 
 USE_LLM            = True
@@ -478,13 +478,21 @@ def normalize_text(text: str) -> str:
 def correct_typo(text: str) -> str:
     corrected = []
     for word in text.split():
-        suggestions = sym_spell.lookup(word, Verbosity.CLOSEST, max_edit_distance=2)
+
+        w = word.lower()
+
+        if w in UMKM_DOMAIN_WORDS:
+            corrected.append(word)
+            continue
+
+        suggestions = sym_spell.lookup(w, Verbosity.CLOSEST, max_edit_distance=2)
+
         if suggestions and suggestions[0].distance <= 1:
-            corrected.append(suggestions[0].term)
+            corrected.append(suggestions[0].term.lower())
         else:
             corrected.append(word)
-    return " ".join(corrected)
 
+    return " ".join(corrected)
 
 # ── Intent Detection ───────────────────────────────────────────────────────────
 def is_greeting(text: str) -> bool:
@@ -693,7 +701,7 @@ def predict():
         session_id = data.get("session_id", "default")
         sess       = session_get(session_id)
 
-        raw_text     = data.get("use_text") or data.get("text", "")
+        raw_text     = data.get("user_text") or data.get("text", "")
         combined_raw = (sess["accumulated_text"] + " " + raw_text).strip() or raw_text
 
         if not combined_raw.strip():
@@ -701,7 +709,7 @@ def predict():
 
         text = correct_typo(normalize_text(combined_raw))
 
-        if len(text.split()) < 2:
+        if len(text.split()) < 2 and not is_business_context(text):
             return jsonify({
                 "success": False,
                 "error": "Deskripsi usaha terlalu singkat. Mohon jelaskan lebih detail.",
@@ -767,7 +775,7 @@ def predict():
             })
 
         results  = sorted(results, key=lambda x: (x["relevance"] * 2 + x["score"]), reverse=True)
-        filtered = [r for r in results if r["relevance"] >= 1 and r["score"] >= 0.03] or results
+        filtered = [r for r in results if r["relevance"] >= 2 and r["score"] >= 0.1] or results
         filtered = filtered[:5]
 
         best_kbli  = filtered[0]
@@ -814,7 +822,7 @@ def chat():
         sess = session_get(session_id)
 
         # 1. Kode KBLI (4–5 digit)
-        kbli_match = re.search(r'\b(\d{4,5})\b', user_text)
+        kbli_match = re.search(r'\b(0?[1-9]\d{3,4})\b', user_text)
         if kbli_match:
             kode = kbli_match.group(1).zfill(5)
             cursor.execute("SELECT kode, judul, deskripsi FROM kbli_2020 WHERE kode = %s", (kode,))
@@ -857,7 +865,7 @@ def chat():
         if is_describing_business:
             accumulated = (sess["accumulated_text"] + " " + user_text).strip()
 
-            if len(user_text.split()) >= 3:
+            if len(user_text.split()) >= 3 and has_business_description(user_text):
                 session_clear(session_id)
                 return jsonify({"redirect": "predict"})
 
