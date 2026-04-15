@@ -813,14 +813,25 @@ def chat():
 
         if not user_text:
             return jsonify({"reply": "Halo! Ada yang bisa saya bantu?"})
+        
+        user_text_clean = normalize_text(user_text)
 
-        # Init sesi
-        user_clarification_count.setdefault(session_id, 0)
-        user_session_text.setdefault(session_id, "")
-        user_awaiting_business.setdefault(session_id, False)
+        is_describing_business = (
+            has_business_description(user_text_clean)
+            or is_business_context(user_text_clean)
+            or user_awaiting_business.get(session_id, False)
+        ) and not is_asking_about_kbli(user_text_clean)
+        
+        if is_describing_business:
+            accumulated = (user_session_text.get(session_id, "") + " " + user_text_clean).strip()
+            user_session_text[session_id] = accumulated
+        
+            if len(user_text_clean.split()) >= 3:
+                clear_session(session_id)
+                return jsonify({"redirect": "predict"})
 
         # 1. Kode KBLI (4–5 digit)
-        kbli_match = re.search(r'\b(\d{4,5})\b', user_text)
+        kbli_match = re.search(r'\b(\d{4,5})\b', user_text_clean)
         if kbli_match:
             kode = kbli_match.group(1).zfill(5)
             cursor.execute("SELECT kode, judul, deskripsi FROM kbli_2020 WHERE kode = %s", (kode,))
@@ -834,9 +845,9 @@ def chat():
                         f"Apakah ini KBLI yang Anda cari?"
                     )
                 })
-            return jsonify({"reply": f"Kode KBLI {user_text} tidak ditemukan. Coba periksa kembali ya."})
+            return jsonify({"reply": f"Kode KBLI {user_text_clean} tidak ditemukan. Coba periksa kembali ya."})
 
-        if is_thanks(user_text):
+        if is_thanks(user_text_clean):
             return jsonify({
                 "reply": (
                     "Sama-sama! Semoga usaha Anda semakin lancar dan berkembang. 😊\n\n"
@@ -846,42 +857,15 @@ def chat():
             })
 
         # 2. Topik UMKM
-        topic = detect_umkm_topic(user_text)
+        topic = detect_umkm_topic(user_text_clean)
         if topic:
             if topic == "menu":
-                return llm_reply_or(user_text, UMKM_KNOWLEDGE[topic])
+                return llm_reply_or(user_text_clean, UMKM_KNOWLEDGE[topic])
             return jsonify({"reply": UMKM_KNOWLEDGE[topic]})
-
-        # 3. Ada deskripsi usaha langsung classify
-        is_describing_business = (
-            has_business_description(user_text)
-            or is_business_context(user_text)
-            or user_awaiting_business.get(session_id, False)
-        ) and not is_asking_about_kbli(user_text)
-        
-        if is_describing_business:
-            model, tokenizer = get_model()
-            accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
-            user_session_text[session_id] = accumulated
-    
-            if len(user_text.split()) >= 3:
-                clear_session(session_id)
-                return jsonify({"redirect": "predict"})
-
-            confidence   = model_confidence(normalize_text(correct_typo(accumulated)))
-            clarif_count = user_clarification_count.get(session_id, 0)
-
-            if confidence >= CONFIDENCE_THRESHOLD or clarif_count >= 1:
-                clear_session(session_id)
-                return jsonify({"redirect": "predict"})
-
-            user_clarification_count[session_id] = clarif_count + 1
-            user_awaiting_business[session_id]   = True
-            return jsonify({"reply": "Boleh ceritakan sedikit lebih detail?"})
 
         
         # 4. Salam murni
-        if is_greeting(user_text) and not is_business_context(user_text):
+        if is_greeting(user_text_clean) and not is_business_context(user_text_clean):
             return jsonify({
                 "reply": (
                     "Halo! Selamat datang di BAKUL KAHURIPAN 👋\n\n"
@@ -895,13 +879,13 @@ def chat():
             })
 
         # 5. Tanya KBLI tapi belum sebut jenis usaha
-        if is_asking_about_kbli(user_text):
-            words_deskriptif = [w for w in user_text.lower().split() 
+        if is_asking_about_kbli(user_text_clean):
+            words_deskriptif = [w for w in user_text_clean.split()
                          if w not in {"berapa","kode","kbli","untuk","gimana",
                          "cara","apa","bagaimana","tolong","bantu",
                          "usaha","yang","dengan","di","dan"}]
-            if len(words_deskriptif) >= 3 or is_business_context(user_text):
-                accumulated = (user_session_text.get(session_id, "") + " " + user_text).strip()
+            if len(words_deskriptif) >= 3 or is_business_context(user_text_clean):
+                accumulated = (user_session_text.get(session_id, "") + " " + user_text_clean).strip()
                 user_session_text[session_id] = accumulated
                 return jsonify({"redirect": "predict"})
             else:
